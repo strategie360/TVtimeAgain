@@ -17,6 +17,7 @@ import { sql } from "drizzle-orm";
 import { closeDb, db } from "../src/db";
 import { createImport, processImport } from "../src/lib/imports";
 import { collectFiles, mergeLetterboxd } from "../src/lib/letterboxd";
+import { contentProfile, contentScore, ensureFeatures, loadFeatures } from "../src/lib/features";
 import { DEFAULT_TUNING, ensureLinks, notorietyFit, notorietyProfile, recommend, type Tuning } from "../src/lib/recs";
 
 const args = process.argv.slice(2);
@@ -100,6 +101,14 @@ async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<unknown>) {
       WHERE um.user_id = ${userId}`);
     console.log(`historique : ${rows.length} lignes, ${liked.length} films notés ≥ 8, ${hidden.length} cachés ;` +
       ` ${reach.n} cachés atteignables parmi ${reach.pool} candidats possibles`);
+    // Régime normal : signaux de contenu et filmographies des réalisateurs déjà récupérés (une fois pour tous).
+    console.time("réalisateurs");
+    for (let pass = 0; pass < 3; pass++) {
+      const pending: Promise<unknown>[] = [];
+      await recommend(userId, { kind: "movie", limit: K, tuning: { directorWeight: 1, directorCount: 60 }, background: (p) => pending.push(p) });
+      await Promise.all(pending);
+    }
+    console.timeEnd("réalisateurs");
     if (args.includes("--analyse")) await analyseSignals(userId, hiddenSet);
     console.log(`\nrappel@${K} | retrouvés | votes médians | blockbusters | réglage`);
 
@@ -194,6 +203,45 @@ async function analyseSignals(userId: number, hidden: Set<number>) {
     ["CF aimés × log(votes)²", (r) => r.cf_pos * Math.log10(r.vote_count + 1) ** 2],
     ["CF aimés × sens unique × note bayésienne", (r) => r.cf_pos * notorietyFit(r.vote_count, prof) * bayes(r)],
   ];
+  // Signaux de contenu : tous les titres de l'utilisateur et les 1 500 candidats les mieux placés.
+  const seedIds = await db.execute<{ movie_id: number; w: number }>(sql`
+    SELECT movie_id, (CASE WHEN status = 0 THEN 0.25 WHEN rating IS NULL THEN 0.6 ELSE (rating - 5.5) / 4.5 END)::real AS w
+    FROM user_movies WHERE user_id = ${userId}`);
+  const prelim = [...rows].sort((a, b) => b.cf_pos * notorietyFit(b.vote_count, prof) - a.cf_pos * notorietyFit(a.vote_count, prof)).slice(0, 1500);
+  console.time("signaux de contenu");
+  await pool([...seedIds.map((s) => s.movie_id), ...prelim.map((r) => r.id)], 12, (id) => ensureFeatures(0, id));
+  console.timeEnd("signaux de contenu");
+  const feats = await loadFeatures([...seedIds.map((s) => ({ kind: 0, id: s.movie_id })), ...rows.map((r) => ({ kind: 0, id: r.id }))]);
+  const cprof = contentProfile(seedIds.map((s) => ({ w: s.w, features: feats.get(`0:${s.movie_id}`) })));
+  const content = (r: (typeof rows)[number]) => contentScore(feats.get(`0:${r.id}`), cprof);
+  const maxContent = Math.max(1e-9, ...prelim.map(content));
+  const sub = new Set(prelim.map((r) => r.id));
+  const subRows = rows.filter((r) => sub.has(r.id));
+  const subLabels = subRows.map((r) => hidden.has(r.id));
+  const current = (r: (typeof rows)[number]) => r.cf_pos * notorietyFit(r.vote_count, prof) ** 2 * bayes(r);
+  console.log(`\nAUC parmi les ${subRows.length} meilleurs candidats (${subLabels.filter(Boolean).length} cachés) :`);
+  for (const [name, f] of [
+    ["algo actuel (CF × notoriété² × note)", current],
+    ["contenu seul", content],
+    ["algo actuel × (1 + contenu)", (r: (typeof rows)[number]) => current(r) * (1 + content(r) / maxContent)],
+    ["algo actuel × (1 + 2 × contenu)", (r: (typeof rows)[number]) => current(r) * (1 + (2 * content(r)) / maxContent)],
+    ["algo actuel × (1 + 4 × contenu)", (r: (typeof rows)[number]) => current(r) * (1 + (4 * content(r)) / maxContent)],
+  ] as [string, (r: (typeof rows)[number]) => number][]) {
+    console.log(`  ${auc(subRows.map(f), subLabels).toFixed(3)}  ${name}`);
+  }
+
+  // Les cachés que le graphe n'atteint pas : partagent-ils un réalisateur avec des films aimés ?
+  const reachable = new Set(rows.map((r) => r.id));
+  const unreachable = [...hidden].filter((id) => !reachable.has(id));
+  await pool(unreachable, 8, (id) => ensureFeatures(0, id));
+  const hf = await loadFeatures(unreachable.map((id) => ({ kind: 0, id })));
+  const likedDirectors = new Map<number, number>();
+  for (const sd of seedIds) if (sd.w > 0.3) for (const d of feats.get(`0:${sd.movie_id}`)?.directors ?? []) likedDirectors.set(d, (likedDirectors.get(d) ?? 0) + 1);
+  const viaDirector = unreachable.filter((id) => (hf.get(`0:${id}`)?.directors ?? []).some((d) => likedDirectors.has(d)));
+  const viaDirector2 = unreachable.filter((id) => (hf.get(`0:${id}`)?.directors ?? []).some((d) => (likedDirectors.get(d) ?? 0) >= 2));
+  console.log(`\ncachés hors graphe : ${unreachable.length} ; dont réalisateur d'un film aimé : ${viaDirector.length} ; réalisateur d'au moins 2 films aimés : ${viaDirector2.length}`);
+  console.log(`réalisateurs d'au moins 2 films aimés : ${[...likedDirectors.values()].filter((n) => n >= 2).length}`);
+
   console.log(`\nAUC sur ${rows.length} candidats (${labels.filter(Boolean).length} cachés atteignables) :`);
   for (const [name, f] of signals) console.log(`  ${auc(rows.map(f), labels).toFixed(3)}  ${name}`);
 }

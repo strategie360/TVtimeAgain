@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [Unreleased]
 
+### Added
+
+- « Pour toi » en rangées : la sélection principale, « Parce que tu as aimé… », « De [réalisateur], dont tu as
+  aimé N films » et « Pépites méconnues ».
+
 ### Changed
 
 - « Pour toi » propose des films nettement plus proches de tes goûts : sur un vrai historique, 43 % de films

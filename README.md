@@ -152,6 +152,15 @@ Rate limit sur l'inscription et la connexion. Tout le SQL est paramétré.
 5. **Diversité** : on pénalise plusieurs titres issus de la même graine ou du même genre.
 6. **Démarrage à froid** : titres les plus votés de ses genres préférés, puis les incontournables.
 7. Chaque suggestion est **expliquée** (« Parce que tu as aimé X »). « Pas pour moi » l'exclut ensuite.
+8. **Rangées** (`recommendRows`, `GET /api/v1/recommendations/rows?kind=movie|show`), un titre par rangée au plus :
+   « Pour toi » (l'algorithme principal), « Parce que tu as aimé X » (voisins de deux coups de cœur),
+   « De [réalisateur] » (réalisateurs dont il a aimé au moins 2 films, longs-métrages connus seulement),
+   « Pépites méconnues » (très bien notées, moins connues que d'habitude, dans ses genres, reliées à 2 titres aimés).
+   Signaux de contenu et filmographies : `src/lib/features.ts`, une fois par titre ou par personne pour tout le monde.
+
+Mesuré aussi, et **non retenu dans le score principal** : la ressemblance de contenu (réalisateurs, acteurs,
+mots-clés : AUC 0,80 au lieu de 0,799) et les films des réalisateurs aimés (rappel@50 0,163 au lieu de 0,156,
+dans le bruit, avec plus de blockbusters). Ces signaux servent aux rangées, pas au classement.
 
 Mesure sur un vrai historique (`npm run recs:holdout -- <dossier d'export Letterboxd>`, base locale) : on cache 20 %
 des films notés ≥ 8/10 et on compte ceux que « Pour toi » retrouve parmi 50 propositions. Sur un export de 1 044

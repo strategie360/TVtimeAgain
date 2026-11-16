@@ -28,8 +28,9 @@ depuis le 16 novembre 2026 : https://t-vtime-again.vercel.app
 
 ## In progress
 
-- Branche `feat/better-recommendations` : « Pour toi » mesuré sur un vrai historique et amélioré (+43 % de films
-  aimés retrouvés) : profil de notoriété, 300 graines, votes TMDB dans le catalogue.
+- Branche `feat/better-recommendations` (PR #12) : « Pour toi » mesuré sur un vrai historique et amélioré (+43 %).
+- Branche `feat/recs-content-signals` (sur la précédente) : rangées dans « Pour toi » (« Parce que tu as aimé »,
+  réalisateurs, pépites) ; signaux de contenu TMDB mesurés, utilisés pour les rangées seulement.
 
 ## Done recently
 

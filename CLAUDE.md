@@ -24,7 +24,8 @@ Nom public : **RegePlaza** (une seule source : `src/lib/brand.ts`). « TVtimeAga
   - `queries.ts` : lectures (une requête par écran)
   - `catalog.ts` / `tmdb.ts` / `sync.ts` : catalogue TMDB, synchro à la demande et job quotidien
   - `imports.ts` / `letterboxd.ts` : import Letterboxd (job reprenable)
-  - `recs.ts` : moteur de recommandation
+  - `recs.ts` : moteur de recommandation (`recommend`, rangées `recommendRows`)
+  - `features.ts` : signaux de contenu TMDB et filmographies de réalisateurs ; `media-summary.ts` : fiches légères des candidats
   - `auth.ts` / `api.ts` : sessions, enveloppe des routes API (erreurs, anti-CSRF, rate limit)
   - `account.ts` : export et suppression des données d'un utilisateur (RGPD)
 - `src/db/schema.ts` : schéma Drizzle ; `drizzle/` : migrations SQL (dont fonctions SQL écrites à la main)
