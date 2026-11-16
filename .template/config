@@ -1,0 +1,8 @@
+# Dev template configuration. Owned by this project: edit freely.
+# Re-run the template's install.sh after changing TEMPLATE_STACKS by hand.
+
+# Stacks checked by ./scripts/check.sh (space-separated).
+TEMPLATE_STACKS="web-ts"
+
+# web-ts: directory containing package.json (relative to the repo root)
+WEB_TS_DIR="."

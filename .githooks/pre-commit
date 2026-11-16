@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Git pre-commit hook. Managed by the dev template.
+# - no commits on main/master (except the very first commit of a repo)
+# - branch names follow <type>/<description>
+# - no secret files or obvious secrets staged
+# - ./scripts/check.sh must pass
+set -u
+root="$(git rev-parse --show-toplevel)"
+cd "$root" || exit 1
+
+red() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
+# fail <rule-id> <message>; rule ids are documented in docs/WORKFLOW.md.
+fail() { red "pre-commit [$1]: $2"; red "Rule explained in docs/WORKFLOW.md."; exit 1; }
+
+branch="$(git branch --show-current)"
+if git rev-parse --verify -q HEAD >/dev/null; then
+  case "$branch" in
+    main|master) fail protected-branch "commits on '$branch' are not allowed. Create a branch: git switch -c feat/<description>" ;;
+  esac
+fi
+if [[ -n "$branch" ]] && git rev-parse --verify -q HEAD >/dev/null \
+   && ! [[ "$branch" =~ ^(feat|fix|chore|docs|refactor|test|perf|ci|build|hotfix|release)/[a-z0-9._/-]+$ ]]; then
+  fail branch-name "branch '$branch' does not follow <type>/<kebab-description> (types: feat fix chore docs refactor test perf ci build hotfix release). Rename: git branch -m <new-name>"
+fi
+
+# Secret files staged?
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+while IFS= read -r f; do
+  [[ -z "$f" ]] && continue
+  name="$(basename -- "$f")"
+  case "$name" in
+    .env.example|.env.sample|.env.template|.env.dist) ;;
+    .env|.env.*|*.pem|*.key|*.p12|*.pfx|*.jks|*.keystore|*.p8|*.mobileprovision|id_rsa*|id_ed25519*|key.properties|service-account*.json)
+      fail secrets "'$f' looks like a secret file. Unstage it (git restore --staged '$f') and add it to .gitignore." ;;
+  esac
+done <<< "$staged"
+
+# Obvious secrets in the staged diff.
+secret_re='(-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|sk_live_[0-9a-zA-Z]{20,}|ghp_[0-9A-Za-z]{36}|github_pat_[0-9A-Za-z_]{40,}|xox[baprs]-[0-9A-Za-z-]{10,}|AIza[0-9A-Za-z_-]{35}|sk-ant-[0-9A-Za-z_-]{20,}|sk-(proj-)?[0-9A-Za-z_-]{32,})'
+if hits="$(git diff --cached -U0 --no-color | grep -E '^\+' | grep -Ev '^\+\+\+' | grep -En "$secret_re")"; then
+  red "pre-commit: the staged changes seem to contain a secret:"
+  printf '%s\n' "$hits" | cut -c1-120 >&2
+  fail secrets "remove it, rotate it if it was ever pushed, and load it from the environment instead."
+fi
+
+# Checks (lint, types, tests). Skipped for the root commit of a new repository,
+# which usually only contains scaffolding (there is nothing to test yet).
+if ! git rev-parse --verify -q HEAD >/dev/null; then
+  echo "pre-commit: first commit of the repository, checks skipped." >&2
+elif [[ -x scripts/check.sh ]]; then
+  echo "pre-commit: running ./scripts/check.sh" >&2
+  ./scripts/check.sh || fail checks-pass "checks failed. Fix them before committing."
+fi
+exit 0

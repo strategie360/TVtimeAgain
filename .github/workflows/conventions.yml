@@ -1,0 +1,44 @@
+# Managed by the dev template.
+name: conventions
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  conventions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title and branch name
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          title_re='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?!?: [^ ].*$'
+          branch_re='^(feat|fix|chore|docs|refactor|test|perf|ci|build|hotfix|release|dependabot|renovate)/.+$'
+          ok=1
+          if ! [[ "$TITLE" =~ $title_re ]]; then
+            echo "::error::[commit-message] PR title must follow Conventional Commits, e.g. 'feat(auth): add password reset'. Got: $TITLE"
+            ok=0
+          fi
+          if ! [[ "$BRANCH" =~ $branch_re ]]; then
+            echo "::error::[branch-name] Branch must be named <type>/<description>. Got: $BRANCH"
+            ok=0
+          fi
+          [[ $ok == 1 ]]
+
+  docs:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-docs-check') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Status and changelog are up to date
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE: origin/${{ github.base_ref }}
+        run: ./scripts/docs-check.sh --base "$BASE" --title "$TITLE"

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Git pre-push hook: no direct pushes to main/master. Managed by the dev template.
+# Creating main on an empty remote (first push of a new repo) is allowed.
+set -u
+zero='0000000000000000000000000000000000000000'
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main|refs/heads/master)
+      [[ "$local_sha" == "$zero" ]] && { echo "pre-push [protected-branch]: deleting '${remote_ref#refs/heads/}' is not allowed." >&2; exit 1; }
+      if [[ "$remote_sha" != "$zero" ]]; then
+        echo "pre-push [protected-branch]: pushing directly to '${remote_ref#refs/heads/}' is not allowed. Push a feature branch and open a pull request." >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
+exit 0
