@@ -59,8 +59,9 @@ flowchart LR
 - Les pages (`src/app/(app)/`) et les route handlers (`src/app/api/v1/`) sont fins : ils valident l'entrée
   et délèguent à `src/lib/`.
 - `src/lib/` contient la logique et le SQL. Les modules importent directement le client `db`
-  (`src/db/index.ts`) : il n'y a pas encore d'injection de dépendances, ce qui complique les tests unitaires
-  sans base (TODO : décider de l'approche de test, base Postgres de test ou ports injectés).
+  (`src/db/index.ts`) : il n'y a pas d'injection de dépendances. Cette logique est donc testée contre un vrai
+  Postgres jetable (embedded-postgres, voir `tests/global-setup.ts`) plutôt qu'avec des simulations de la base ;
+  seul le réseau (TMDB) est simulé.
 - Les composants client ne parlent qu'à l'API (`src/components/client-api.ts`).
 
 ## Data
