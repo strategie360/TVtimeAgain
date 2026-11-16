@@ -5,7 +5,7 @@
  * Comparé au hasard : 60/3000 = 2 % de chances.
  */
 import { sql } from "drizzle-orm";
-import { db, pg } from "../src/db";
+import { closeDb, db } from "../src/db";
 import { recommend } from "../src/lib/recs";
 
 const BASE = 900_100_001;
@@ -28,5 +28,5 @@ const N = Number(process.argv[2] ?? 200);
   times.sort((a, b) => a - b);
   console.log(`${users.length} users · précision@10 = ${((hits / Math.max(1, total)) * 100).toFixed(1)} % (hasard : 2 %)`);
   console.log(`latence : médiane ${times[times.length >> 1].toFixed(1)} ms · p95 ${times[Math.floor(times.length * 0.95)].toFixed(1)} ms`);
-  await pg.end();
+  await closeDb();
 })();

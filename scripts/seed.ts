@@ -7,7 +7,7 @@
  * avec de vrais IDs TMDB.
  */
 import { sql } from "drizzle-orm";
-import { db, pg } from "../src/db";
+import { closeDb, db } from "../src/db";
 
 const BASE = 900_000_000;
 
@@ -108,4 +108,4 @@ async function seedBench() {
     console.error(e);
     process.exitCode = 1;
   })
-  .finally(() => pg.end());
+  .finally(() => closeDb());
