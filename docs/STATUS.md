@@ -28,12 +28,12 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore 
 
 ## In progress
 
-- Branche `test/core-logic-tests` : premiers tests automatisés (48 tests, Vitest + Postgres jetable).
+- None
 
 ## Done recently
 
-- 2026-11-16 : tests automatisés de la logique centrale (épisodes et compteurs, films, import Letterboxd,
-  recommandations) ; `./scripts/check.sh` passe.
+- 2026-11-16 : tests automatisés de la logique centrale (48 tests : épisodes et compteurs, films, import
+  Letterboxd, recommandations), mergés dans `main` (PR #1) ; `./scripts/check.sh` et la CI GitHub passent.
 - 2026-11-16 : import Letterboxd, sélection rapide « déjà vus », notes en étoiles, recommandations « Pour toi ».
 - 2026-11-15 : suivi des séries et épisodes, calendrier, films, statistiques, synchro TMDB, PWA.
 
