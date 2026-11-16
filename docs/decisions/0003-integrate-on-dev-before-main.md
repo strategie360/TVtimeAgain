@@ -1,6 +1,6 @@
 # 0003. Intégrer sur une branche `dev` avant `main`
 
-- Status: accepted
+- Status: superseded by [0004](0004-pull-requests-directly-to-main.md)
 - Date: 2026-11-16
 
 ## Context

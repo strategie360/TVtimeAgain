@@ -74,25 +74,14 @@ Pour vérifier une requête, la lancer avec `EXPLAIN ANALYZE` dans `psql -d tvti
 
 ## Workflow
 
-The full summary of rules and commands is in [WORKFLOW.md](WORKFLOW.md). **Dans ce projet, la base est
-`dev` et non `main`** ([décision 0003](decisions/0003-integrate-on-dev-before-main.md)) :
+The full summary of rules and commands is in [WORKFLOW.md](WORKFLOW.md). In short
+([décision 0004](decisions/0004-pull-requests-directly-to-main.md)) :
 
-```mermaid
-flowchart LR
-  f["feat/… fix/… docs/…"] -->|PR| dev
-  dev -->|"git switch -c release/0.2.0"| r[release/0.2.0]
-  r -->|PR| main
-  main --> prod[(Production Vercel)]
-  dev --> staging[(Preview dev = staging)]
-```
-
-- Branch from `dev`: `git switch dev && git pull --ff-only && git switch -c <type>/<short-description>`.
-- Conventional Commits; tests with every change; PR to `dev` (`gh pr create --base dev`) with the PR template filled in.
-- Mise en production : `git switch dev && git pull --ff-only && git switch -c release/<version>`, mettre à jour
-  `CHANGELOG.md` (`[Unreleased]` → version), `package.json`, `package-lock.json` et `docs/STATUS.md`, puis PR
-  vers `main` (titre `chore(release): <version>`). Une fois mergée, ouvrir une seconde PR de la même branche
-  vers `dev` (`gh pr create --base dev --head release/<version>`) pour y ramener le changement de version.
-- `main` est la branche par défaut (production) : toujours préciser `--base dev` pour une PR de travail.
+- Branch from `main`: `git switch main && git pull --ff-only && git switch -c <type>/<short-description>`.
+- Conventional Commits; tests with every change; PR to `main` with the PR template filled in. Merging deploys to production.
+- Vérifier la preview Vercel de la PR avant de merger.
+- Pour marquer une version : PR `chore(release): <version>` vers `main` (`[Unreleased]` → version dans `CHANGELOG.md`,
+  `package.json`, `package-lock.json`, `docs/STATUS.md`).
 - Update [STATUS.md](STATUS.md), [CHANGELOG.md](../CHANGELOG.md) and the docs your change affects.
 - Engineering standards: `.claude/standards/` (they apply to humans too).
 

@@ -10,8 +10,7 @@ Hébergement retenu : Vercel Hobby + Neon Free, tant que le projet n'est pas com
 | Environment | URL / target | Deployed from | Notes |
 |---|---|---|---|
 | Local | http://localhost:3000 | `npm run dev` | Postgres local, voir [DEVELOPMENT.md](DEVELOPMENT.md) |
-| Staging | URL de la preview de la branche `dev` (adresse stable par branche) | Branche `dev` | Base Neon séparée (branche Neon `dev`), migrée à chaque déploiement ; pas de cron (Vercel ne lance les crons qu'en production) |
-| Preview | URL générée par Vercel pour chaque PR | Branches de travail | Pas de migration, pas de base par défaut : les pages connectées y sont en erreur |
+| Preview | URL générée par Vercel pour chaque PR | Branches de travail | Pas de migration, pas de base : les pages connectées y sont en erreur ; à vérifier avant chaque merge |
 | Production | https://t-vtime-again.vercel.app (projet Vercel `t-vtime-again`) | Branche `main` | Vercel Hobby, fonctions en `fra1` ; base Neon Free, projet `red-art-80639366`, région `aws-eu-central-1`, branche `production` |
 
 ## Configuration
@@ -29,7 +28,8 @@ Les mêmes variables que `.env.example`. Les valeurs ne sont jamais dans le dép
 | `CRON_SECRET` | Secret du job quotidien ; Vercel Cron l'envoie tout seul dans `Authorization: Bearer …` | Oui | `.env.local` / Vercel ; une longue chaîne aléatoire |
 
 Variables posées par Vercel et lues par le code : `VERCEL_ENV` et `VERCEL_GIT_COMMIT_REF` (les migrations ne
-tournent qu'en production et sur la preview de `dev`, voir `planMigration` dans `src/lib/deploy.ts`).
+tournent qu'en production, voir `planMigration` dans `src/lib/deploy.ts` ; sa règle pour la preview de `dev` ne sert
+plus depuis la décision 0004).
 
 ## Deploy
 
@@ -44,11 +44,7 @@ tournent qu'en production et sur la preview de `dev`, voir `planMigration` dans 
 3. Dans Vercel → Settings → Environment Variables, scope **Production** : `DATABASE_URL` (pooled),
    `DATABASE_URL_UNPOOLED` (directe), `DATABASE_POOL_MAX=3`, `DATABASE_PREPARE=false`, `TMDB_TOKEN`,
    `CRON_SECRET`.
-4. **Staging (`dev`)** : dans Neon, créer une branche `dev` à partir de la branche principale (elle a sa
-   propre adresse pooled et directe). Dans Vercel, scope **Preview** limité à la branche Git `dev` :
-   `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (de la branche Neon `dev`), `DATABASE_POOL_MAX=3`,
-   `DATABASE_PREPARE=false`, `TMDB_TOKEN`. Ne jamais y mettre l'adresse de la base de production.
-   Les autres previews n'ont pas de base : leur build réussit, mais les pages connectées y sont en erreur.
+4. Les previews n'ont pas de base : leur build réussit, mais les pages connectées y sont en erreur.
 5. Lancer un premier déploiement (push sur `main`) ; les migrations s'appliquent pendant le build.
 
 ### Avant la première mise en ligne publique
@@ -63,8 +59,7 @@ Les pages publiques affirment des choses qui doivent être vraies en production 
 
 ### À chaque mise en production
 
-- Le travail arrive d'abord sur `dev` (déployé en staging), puis passe en production par une branche
-  `release/<version>` et une PR vers `main` ([décision 0003](decisions/0003-integrate-on-dev-before-main.md)).
+- Chaque PR mergée dans `main` part en production ([décision 0004](decisions/0004-pull-requests-directly-to-main.md)).
 - Merger une PR dans `main` déclenche le déploiement de production. Le build exécute
   `npm run db:migrate:deploy` puis `next build`. Si une migration échoue, ou si aucune adresse de base
   n'est configurée en production, le build échoue et l'ancienne version reste en ligne.
