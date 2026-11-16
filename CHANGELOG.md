@@ -5,6 +5,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- « Pour toi » propose des films nettement plus proches de tes goûts : sur un vrai historique, 43 % de films
+  aimés retrouvés en plus. L'algorithme tient compte de la notoriété des films que tu aimes et de bien plus
+  de ton historique (300 titres au lieu de 40).
+
 ## [1.0.1] - 2026-11-16
 
 ### Added
