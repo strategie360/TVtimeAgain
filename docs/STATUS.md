@@ -6,7 +6,7 @@ Single source of truth on where the project stands. Claude reads it at every ses
 keep it short, factual and current. Rules: .claude/standards/documentation.md
 -->
 
-Phase: prototype
+Phase: mvp
 Version: 0.1.0
 Last updated: 2026-11-16
 
@@ -14,25 +14,26 @@ Last updated: 2026-11-16
 
 ## In one paragraph
 
-TVtimeAgain est une application web, installable sur téléphone, pour suivre ses séries et ses films :
+RegePlaza (dépôt TVtimeAgain) est une application web, installable sur téléphone, pour suivre ses séries et ses films :
 cocher les épisodes vus, savoir quel épisode regarder ensuite, voir les prochaines sorties, noter ses films
 et consulter ses statistiques. On peut importer son historique Letterboxd ou cocher rapidement ce qu'on a
 déjà vu, et l'application propose des films et des séries adaptés à ses goûts. Elle reprend l'idée de
 TV Time, qui a fermé faute de financement, avec l'objectif de coûter très peu par utilisateur. Elle
-fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore en ligne.
+fonctionne aujourd'hui sur l'ordinateur du développeur ; la première version publique (1.0.0) est en préparation.
 
 ## Current focus
 
-- Mettre l'application en ligne gratuitement (Vercel Hobby + Neon Free) : créer les comptes, configurer, premier déploiement.
+- Mettre la V1 (1.0.0) en ligne gratuitement (Vercel Hobby + Neon Free).
 - Étendre les tests aux parties encore non couvertes (API, authentification, synchro TMDB).
 
 ## In progress
 
-- Branche `chore/dev-branch-workflow` : intégration sur `dev` avant `main` (décision 0003), staging sur la
-  preview Vercel de `dev` avec sa propre base.
+- Branche `feat/v1-launch` : nom RegePlaza, pages À propos (mention TMDB) et Confidentialité, export et
+  suppression de compte (RGPD), guide utilisateur, passage en phase `mvp`.
 
 ## Done recently
 
+- 2026-11-16 : intégration sur `dev` avant `main` (décision 0003, PR #4) ; `dev` est la branche par défaut.
 - 2026-11-16 : configuration de déploiement gratuit Vercel Hobby + Neon Free (cron, migrations au
   déploiement, build sans base), décision 0002 et OPERATIONS.md (PR #3).
 - 2026-11-16 : branche `dev` créée ; les PR vont désormais vers `dev`.
@@ -51,17 +52,17 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore 
 
 ## Known issues and risks
 
-- Tests partiels : les routes API, l'authentification, la synchro TMDB et l'interface ne sont pas encore testées.
+- Phase `mvp` : les routes API, l'authentification, la synchro TMDB et l'interface ne sont pas encore testées,
+  alors que le standard demande une couverture complète des fonctionnalités.
 - Licence TMDB : l'API gratuite est réservée à un usage non commercial ; une licence commerciale est
   nécessaire avant toute monétisation.
 - `main` et `dev` ne sont pas protégées sur GitHub (offre gratuite + dépôt privé) : seuls les hooks locaux
   empêchent un push direct. Risque accepté tant que le projet n'a qu'un contributeur (décision 0003).
-- Le nom « TVtimeAgain » reprend la marque « TV Time » : risque juridique pour un produit public.
+- Le nom du dépôt « TVtimeAgain » reprend la marque « TV Time » ; le nom public est RegePlaza.
 - Limitation de débit (rate limit) en mémoire, par instance : moins efficace sur Vercel (instances multiples).
 - Hébergement gratuit : Neon Free limité à 1 Go et 100 CU-heures par mois, restauration sur 6 h seulement ;
   Vercel Hobby réservé à un usage non commercial. Changer d'offre avant toute monétisation (décision 0002).
 
 ## Open questions
 
-- Nom définitif du produit : l'interface affiche « NextUp », la documentation « TVtimeAgain ». Owner : TODO.
 - Modèle économique : contenu de l'offre payante et calendrier. Owner : TODO.

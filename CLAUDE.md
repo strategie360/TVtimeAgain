@@ -11,12 +11,13 @@ vient de TMDB, est copié une seule fois et partagé par tous les utilisateurs. 
 central : un coût par utilisateur minimal (requêtes en quelques millisecondes, compteurs dénormalisés,
 aucun agrégat global à la lecture, images servies par le CDN de TMDB).
 
-Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, questions ouvertes).
+Nom public : **RegePlaza** (une seule source : `src/lib/brand.ts`). « TVtimeAgain » est le nom du dépôt.
+Éditeur et contact RGPD affichés sur les pages publiques : `src/lib/legal.ts`.
 
 ## Layout
 
 - `src/app/(app)/` : pages connectées (à suivre, agenda, séries, films, stats, pour toi, import, sélection rapide, fiches)
-- `src/app/login/` : connexion et inscription
+- `src/app/login/` : connexion et inscription ; `src/app/about/`, `src/app/privacy/` : pages publiques (TMDB, mentions légales, RGPD)
 - `src/app/api/v1/` : API JSON, réutilisable par une future app mobile (route handlers fins)
 - `src/lib/` : logique métier et accès aux données
   - `tracking.ts` : écritures utilisateur (épisodes vus, films, notes)
@@ -25,6 +26,7 @@ Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, q
   - `imports.ts` / `letterboxd.ts` : import Letterboxd (job reprenable)
   - `recs.ts` : moteur de recommandation
   - `auth.ts` / `api.ts` : sessions, enveloppe des routes API (erreurs, anti-CSRF, rate limit)
+  - `account.ts` : export et suppression des données d'un utilisateur (RGPD)
 - `src/db/schema.ts` : schéma Drizzle ; `drizzle/` : migrations SQL (dont fonctions SQL écrites à la main)
 - `src/components/` : composants React (serveur et client)
 - `scripts/` : seed, synchro, graphe de recommandations, évaluation (exécutés avec tsx)
@@ -60,7 +62,10 @@ Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, q
   avant d'ajouter une requête sur une table utilisateur.
 - SQL : toujours paramétré ; tableaux passés via `pgArray()` (un seul paramètre lié) ; caster les constantes
   utilisées dans un `CASE` ou un `UNION` (`::smallint`), sinon Postgres les type en `text`.
-- TMDB : ne jamais l'appeler depuis le navigateur ; tout passe par le catalogue partagé.
+- TMDB : ne jamais l'appeler depuis le navigateur ; tout passe par le catalogue partagé. La mention TMDB
+  (page À propos) est obligatoire selon leurs conditions.
+- Données personnelles : toute nouvelle table liée à un utilisateur doit avoir `ON DELETE CASCADE` depuis
+  `users` et apparaître dans l'export (`src/lib/account.ts`), et la page Confidentialité doit rester exacte.
 - Hébergement gratuit (Vercel Hobby + Neon Free, décision 0002) : pas d'état en mémoire indispensable
   (plusieurs instances éphémères), requêtes de moins de 300 s, migrations compatibles avec la version
   précédente du code. Aucune API propre à Vercel ou Neon dans le code, pour pouvoir déménager.
