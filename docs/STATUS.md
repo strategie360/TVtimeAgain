@@ -33,6 +33,7 @@ depuis le 16 novembre 2026 : https://t-vtime-again.vercel.app
 
 ## Done recently
 
+- 2026-11-16 : bouton « afficher le mot de passe » (PR #14).
 - 2026-11-16 : retour aux PR directes vers `main` (décision 0004, remplace 0003) ; release 1.0.1.
 - 2026-11-16 : import Letterboxd fiabilisé sur un vrai export (PR #10) : 1 044/1 044 titres reconnus, mini-séries
   détectées, dossiers `deleted/` ignorés.

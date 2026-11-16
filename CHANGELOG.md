@@ -5,6 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Bouton pour afficher ou masquer le mot de passe (connexion, inscription, suppression de compte).
+
 ### Changed
 
 - « Pour toi » propose des films nettement plus proches de tes goûts : sur un vrai historique, 43 % de films

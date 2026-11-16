@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/components/client-api";
+import { PasswordInput } from "@/components/password-input";
 
 export function LoginForm() {
   const router = useRouter();
@@ -30,10 +31,10 @@ export function LoginForm() {
     >
       {mode === "register" && <input name="displayName" placeholder="Pseudo" required maxLength={50} className={input} autoComplete="nickname" />}
       <input name="email" type="email" placeholder="Email" required className={input} autoComplete="email" />
-      <input
+      <PasswordInput
         name="password"
-        type="password"
         placeholder="Mot de passe"
+        aria-label="Mot de passe"
         required
         minLength={mode === "register" ? 8 : 1}
         className={input}
