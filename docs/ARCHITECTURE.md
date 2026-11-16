@@ -88,7 +88,11 @@ Données personnelles : email, pseudo, historique de visionnage et notes. Suppre
 |---|---|---|
 | TMDB API | Catalogue, recherche, listes, recommandations | https://developer.themoviedb.org/docs |
 | CDN images TMDB | Affiches et images (chargées directement par le navigateur) | https://image.tmdb.org |
-| Hébergement | TODO (non choisi) | TODO |
+| Vercel (Hobby) | Hébergement de l'app, cron quotidien (`vercel.json`) | https://vercel.com/dashboard |
+| Neon (Free) | Base Postgres de production | https://console.neon.tech |
+
+Choix et limites : [décision 0002](decisions/0002-host-on-vercel-hobby-and-neon-free.md) ; exploitation : [OPERATIONS.md](OPERATIONS.md).
+Le client Postgres (`src/db/index.ts`) est créé à la première requête, pour que `next build` n'ait pas besoin de base.
 
 ## Directory map
 

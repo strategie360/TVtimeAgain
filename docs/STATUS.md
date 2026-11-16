@@ -23,12 +23,13 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore 
 
 ## Current focus
 
-- Mettre l'application en ligne (serveur en Europe, sauvegardes, job quotidien).
+- Mettre l'application en ligne gratuitement (Vercel Hobby + Neon Free) : créer les comptes, configurer, premier déploiement.
 - Étendre les tests aux parties encore non couvertes (API, authentification, synchro TMDB).
 
 ## In progress
 
-- None
+- Branche `chore/deploy-vercel-neon` : configuration de déploiement (cron Vercel, migrations au déploiement,
+  build sans base), décision 0002 et OPERATIONS.md.
 
 ## Done recently
 
@@ -39,9 +40,10 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore 
 
 ## Next
 
-1. Déploiement : Dockerfile, mode `standalone`, migrations au déploiement, job quotidien, sauvegardes.
-2. Tests restants : routes API (validation, anti-CSRF, droits), authentification, synchro TMDB (`catalog.ts`, `sync.ts`).
-3. Fonctionnalités : import TV Time et IMDb, notifications de nouveaux épisodes, export et suppression de compte.
+1. Mise en ligne : créer les projets Neon et Vercel, renseigner les variables (docs/OPERATIONS.md), premier déploiement.
+2. Sauvegarde régulière de la base (`pg_dump` programmé) : Neon Free ne restaure que sur 6 h.
+3. Tests restants : routes API (validation, anti-CSRF, droits), authentification, synchro TMDB (`catalog.ts`, `sync.ts`).
+4. Fonctionnalités : import TV Time et IMDb, notifications de nouveaux épisodes, export et suppression de compte.
 
 ## Known issues and risks
 
@@ -49,10 +51,12 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore 
 - Licence TMDB : l'API gratuite est réservée à un usage non commercial ; une licence commerciale est
   nécessaire avant toute monétisation.
 - Le nom « TVtimeAgain » reprend la marque « TV Time » : risque juridique pour un produit public.
-- Limitation de débit (rate limit) en mémoire, par instance : à déplacer (ex. Redis) si plusieurs instances.
+- Limitation de débit (rate limit) en mémoire, par instance : moins efficace sur Vercel (instances multiples).
+- Hébergement gratuit : Neon Free limité à 1 Go et 100 CU-heures par mois, restauration sur 6 h seulement ;
+  Vercel Hobby réservé à un usage non commercial. Changer d'offre avant toute monétisation (décision 0002).
 
 ## Open questions
 
 - Nom définitif du produit : l'interface affiche « NextUp », la documentation « TVtimeAgain ». Owner : TODO.
-- Hébergement : serveur unique en Europe avec Coolify recommandé, pas encore choisi. Owner : TODO.
+- Previews Vercel : base dédiée (branche Neon) ou pas de base. Owner : TODO.
 - Modèle économique : contenu de l'offre payante et calendrier. Owner : TODO.

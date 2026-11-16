@@ -156,6 +156,12 @@ précision@10 = **100 %** (hasard : 2 %), latence **8 ms en médiane, 15 ms au p
 Le calcul du graphe collaboratif prend 2,2 s. Il tient dans Postgres jusqu'à ~100 k utilisateurs actifs ;
 au-delà, le même calcul passe dans un job batch dédié qui réécrit `item_links`.
 
+## Hébergement
+
+Gratuit tant que le projet n'est pas commercial : **Vercel Hobby** pour l'app et **Neon Free** pour la base
+([décision 0002](docs/decisions/0002-host-on-vercel-hobby-and-neon-free.md)). Mise en place, variables,
+retour arrière et incidents : [docs/OPERATIONS.md](docs/OPERATIONS.md).
+
 ## Passer à l'échelle (dans l'ordre, quand ce sera nécessaire)
 
 1. **PgBouncer** en mode transaction devant Postgres (`DATABASE_PREPARE=false`).

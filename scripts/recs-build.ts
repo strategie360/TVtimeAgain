@@ -1,6 +1,6 @@
 // npm run recs:build — recalcule les liens de co-visionnage (aussi fait par le job quotidien).
 import { buildCollabLinks } from "../src/lib/recs";
-import { pg } from "../src/db";
+import { closeDb } from "../src/db";
 
 console.time("collab");
 buildCollabLinks()
@@ -11,5 +11,5 @@ buildCollabLinks()
   })
   .finally(() => {
     console.timeEnd("collab");
-    return pg.end();
+    return closeDb();
   });
