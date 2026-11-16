@@ -28,10 +28,11 @@ depuis le 16 novembre 2026 : https://t-vtime-again.vercel.app
 
 ## In progress
 
-- Retour de `release/1.0.0` vers `dev` (version 1.0.0, correctif Next.js, URL de production).
+- Branche `feat/vercel-analytics` : mesure d'audience Vercel Web Analytics, page Confidentialité mise à jour.
 
 ## Done recently
 
+- 2026-11-16 : retour de la release 1.0.0 dans `dev` (PR #7).
 - 2026-11-16 : **1.0.0 en ligne** (https://t-vtime-again.vercel.app, PR #6) : Vercel Hobby (fonctions à Francfort, `fra1`) et Neon
   (`aws-eu-central-1`) ; migrations appliquées ; Next.js 15.5.29 (faille CVE-2025-66478 corrigée).
 - 2026-11-16 : préparation du lancement (PR #5) : nom RegePlaza, pages À propos (mention TMDB) et

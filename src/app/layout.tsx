@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { SiteAnalytics } from "@/components/analytics";
 import { SwRegister } from "@/components/sw-register";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="antialiased min-h-dvh">
         {children}
         <SwRegister />
+        <SiteAnalytics />
       </body>
     </html>
   );

@@ -5,6 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Mesure d'audience anonyme et sans cookie (Vercel Web Analytics), annoncée dans la page Confidentialité.
+
 ## [1.0.0] - 2026-11-16
 
 Première version publique.
