@@ -6,6 +6,7 @@
  *  3. resynchro de ces titres seulement, en parallèle borné
  *  4. mise à jour de aired_episodes pour les séries ayant eu une diffusion depuis
  *     le dernier passage (une requête ensembliste)
+ *  5. rattrapage progressif des titres sans votes TMDB (profil de notoriété des recommandations)
  */
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -30,6 +31,20 @@ async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<unknown>) {
     }),
   );
   return failed;
+}
+
+/**
+ * Titres du catalogue sans note ni nombre de votes TMDB (ajoutés avant que ces colonnes existent) :
+ * on les resynchronise par lots, pour rester bien en dessous des limites de TMDB et des 300 s de Vercel.
+ */
+export async function backfillVotes(limits = { movies: 400, shows: 60 }) {
+  const [movies, shows] = await Promise.all([
+    db.execute<{ id: number }>(sql`SELECT id FROM movies WHERE vote_count IS NULL ORDER BY id LIMIT ${limits.movies}`),
+    db.execute<{ id: number }>(sql`SELECT id FROM shows WHERE vote_count IS NULL ORDER BY id LIMIT ${limits.shows}`),
+  ]);
+  const movieFailed = await pool(movies.map((r) => r.id), 8, syncMovie);
+  const showFailed = await pool(shows.map((r) => r.id), 4, syncShow);
+  return { movies: movies.length - movieFailed, shows: shows.length - showFailed };
 }
 
 export async function runDailySync() {
@@ -61,6 +76,7 @@ export async function runDailySync() {
     INSERT INTO sync_state (key, value) VALUES ('changes_since', ${now.toISOString()})
     ON CONFLICT (key) DO UPDATE SET value = excluded.value`);
   await db.execute(sql`DELETE FROM sessions WHERE expires_at < now()`);
+  const votesBackfilled = await backfillVotes().catch((e) => ({ error: String(e) }));
   // Recalcul du graphe de co-visionnage (recommandations).
   const collab = await buildCollabLinks().catch((e) => ({ error: String(e) }));
 
@@ -70,6 +86,7 @@ export async function runDailySync() {
     resynced: { shows: showIds.length - showFailed, movies: movieIds.length - movieFailed },
     failed: { shows: showFailed, movies: movieFailed },
     airedRefreshed: aired.length,
+    votesBackfilled,
     collab,
   };
 }

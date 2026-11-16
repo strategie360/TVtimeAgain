@@ -18,7 +18,9 @@
     "test:watch": "vitest",
     "dev:preview": "NEXT_DIST_DIR=.next-preview next dev -p 3001",
     "recs:build": "tsx --env-file=.env.local scripts/recs-build.ts",
-    "recs:eval": "tsx --env-file=.env.local scripts/recs-eval.ts"
+    "recs:eval": "tsx --env-file=.env.local scripts/recs-eval.ts",
+    "recs:holdout": "tsx --env-file=.env.local scripts/recs-holdout.ts",
+    "catalog:backfill-votes": "tsx --env-file=.env.local scripts/backfill-votes.ts"
   },
   "dependencies": {
     "@vercel/analytics": "2.0.1",

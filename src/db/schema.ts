@@ -51,6 +51,9 @@ export const shows = pgTable(
     // Épisodes déjà diffusés (saison > 0). Rafraîchi par le job quotidien.
     airedEpisodes: smallint("aired_episodes").notNull().default(0),
     popularity: real("popularity").notNull().default(0),
+    // Note moyenne et nombre de votes TMDB : servent au profil de notoriété des recommandations.
+    voteAverage: real("vote_average"),
+    voteCount: integer("vote_count"), // null = pas encore synchronisé
     syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("shows_popularity_idx").on(t.popularity)],
@@ -91,6 +94,8 @@ export const movies = pgTable("movies", {
   runtime: smallint("runtime"),
   genreIds: smallint("genre_ids").array().notNull().default(sql`'{}'`),
   popularity: real("popularity").notNull().default(0),
+  voteAverage: real("vote_average"),
+  voteCount: integer("vote_count"), // null = pas encore synchronisé
   syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
