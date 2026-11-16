@@ -30,9 +30,17 @@ export default function PrivacyPage() {
 
       <h2>Cookies et stockage</h2>
       <p>
-        Un seul cookie, indispensable : ta session de connexion. Pas de cookie publicitaire, pas d&apos;outil de
-        mesure d&apos;audience. L&apos;application peut garder une copie des pages et des affiches sur ton appareil
-        pour fonctionner hors ligne ; elle est effacée à la déconnexion.
+        Un seul cookie, indispensable : ta session de connexion. Pas de cookie publicitaire. L&apos;application
+        peut garder une copie des pages et des affiches sur ton appareil pour fonctionner hors ligne ; elle est
+        effacée à la déconnexion.
+      </p>
+
+      <h2>Mesure d&apos;audience</h2>
+      <p>
+        Pour savoir quelles pages sont utilisées, {APP_NAME} utilise Vercel Web Analytics, <b>sans cookie</b> et
+        sans suivi d&apos;un site à l&apos;autre. Sont comptés : la page visitée (son chemin seulement : le texte
+        de tes recherches n&apos;est pas envoyé), la page d&apos;où tu viens, le pays, le type d&apos;appareil, le
+        navigateur et le système. Ces statistiques sont anonymes et ne sont pas reliées à ton compte.
       </p>
 
       <h2>Où sont-elles hébergées ?</h2>

@@ -18,20 +18,23 @@ RegePlaza (dépôt TVtimeAgain) est une application web, installable sur télép
 cocher les épisodes vus, savoir quel épisode regarder ensuite, voir les prochaines sorties, noter ses films
 et consulter ses statistiques. On peut importer son historique Letterboxd ou cocher rapidement ce qu'on a
 déjà vu, et l'application propose des films et des séries adaptés à ses goûts. Elle reprend l'idée de
-TV Time, qui a fermé faute de financement, avec l'objectif de coûter très peu par utilisateur. Elle
-La première version publique (1.0.0) est prête ; sa mise en ligne attend la création des comptes Neon et Vercel.
+TV Time, qui a fermé faute de financement, avec l'objectif de coûter très peu par utilisateur. La première version publique (1.0.0) est en ligne
+depuis le 16 novembre 2026 : https://t-vtime-again.vercel.app
 
 ## Current focus
 
-- Mettre la V1 (1.0.0) en ligne gratuitement (Vercel Hobby + Neon Free).
+- Sécuriser la production : sauvegarde indépendante de la base, mises à jour de dépendances restantes.
 - Étendre les tests aux parties encore non couvertes (API, authentification, synchro TMDB).
 
 ## In progress
 
-- Branche `release/1.0.0` : version 1.0.0, PR de `dev` vers `main`.
+- Branche `feat/vercel-analytics` : mesure d'audience Vercel Web Analytics, page Confidentialité mise à jour.
 
 ## Done recently
 
+- 2026-11-16 : retour de la release 1.0.0 dans `dev` (PR #7).
+- 2026-11-16 : **1.0.0 en ligne** (https://t-vtime-again.vercel.app, PR #6) : Vercel Hobby (fonctions à Francfort, `fra1`) et Neon
+  (`aws-eu-central-1`) ; migrations appliquées ; Next.js 15.5.29 (faille CVE-2025-66478 corrigée).
 - 2026-11-16 : préparation du lancement (PR #5) : nom RegePlaza, pages À propos (mention TMDB) et
   Confidentialité, export et suppression de compte (RGPD), guide utilisateur, phase `mvp`.
 - 2026-11-16 : intégration sur `dev` avant `main` (décision 0003, PR #4) ; `main` reste la branche par défaut (production).
@@ -45,11 +48,11 @@ La première version publique (1.0.0) est prête ; sa mise en ligne attend la cr
 
 ## Next
 
-1. Mise en ligne : créer les projets Neon (avec une branche `dev`) et Vercel, renseigner les variables
-   (docs/OPERATIONS.md), premier déploiement de `dev` puis de `main` via une branche `release/`.
+1. Staging : branche Neon `dev` et variables Preview de Vercel limitées à la branche `dev` (docs/OPERATIONS.md).
 2. Sauvegarde régulière de la base (`pg_dump` programmé) : Neon Free ne restaure que sur 6 h.
 3. Tests restants : routes API (validation, anti-CSRF, droits), authentification, synchro TMDB (`catalog.ts`, `sync.ts`).
-4. Fonctionnalités : import TV Time et IMDb, notifications de nouveaux épisodes.
+4. Maintenance : fixer Node 22 sur Vercel (`engines`), drizzle-orm 0.45, zod 4, Next 16 (failles restantes, voir plus bas).
+5. Fonctionnalités : import TV Time et IMDb, notifications de nouveaux épisodes.
 
 ## Known issues and risks
 

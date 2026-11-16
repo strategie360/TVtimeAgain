@@ -68,6 +68,8 @@ Nom public : **RegePlaza** (une seule source : `src/lib/brand.ts`). « TVtimeAga
   (page À propos) est obligatoire selon leurs conditions.
 - Données personnelles : toute nouvelle table liée à un utilisateur doit avoir `ON DELETE CASCADE` depuis
   `users` et apparaître dans l'export (`src/lib/account.ts`), et la page Confidentialité doit rester exacte.
+  Mesure d'audience : Vercel Web Analytics (`src/components/analytics.tsx`) ; ne jamais y envoyer de paramètres
+  d'URL ni d'identifiant d'utilisateur.
 - Hébergement gratuit (Vercel Hobby + Neon Free, décision 0002) : pas d'état en mémoire indispensable
   (plusieurs instances éphémères), requêtes de moins de 300 s, migrations compatibles avec la version
   précédente du code. Aucune API propre à Vercel ou Neon dans le code, pour pouvoir déménager.
