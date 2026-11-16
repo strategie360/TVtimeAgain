@@ -10,8 +10,7 @@ séries adaptés à tes goûts.
 
 ## Commencer
 
-1. Ouvre l'application dans ton navigateur, sur téléphone ou sur ordinateur.
-   L'adresse sera indiquée ici une fois le site en ligne (TODO).
+1. Ouvre https://t-vtime-again.vercel.app dans ton navigateur, sur téléphone ou sur ordinateur.
 2. Choisis « Pas de compte ? Inscris-toi », puis saisis un pseudo, ton email et un mot de passe
    (8 caractères minimum).
 3. Sur téléphone, tu peux l'installer comme une application : dans le menu du navigateur,

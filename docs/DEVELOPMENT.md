@@ -89,8 +89,10 @@ flowchart LR
 - Branch from `dev`: `git switch dev && git pull --ff-only && git switch -c <type>/<short-description>`.
 - Conventional Commits; tests with every change; PR to `dev` (`gh pr create --base dev`) with the PR template filled in.
 - Mise en production : `git switch dev && git pull --ff-only && git switch -c release/<version>`, mettre à jour
-  `CHANGELOG.md` (`[Unreleased]` → version), `package.json` et `docs/STATUS.md`, puis PR vers `main`
-  (titre `chore(release): <version>`).
+  `CHANGELOG.md` (`[Unreleased]` → version), `package.json`, `package-lock.json` et `docs/STATUS.md`, puis PR
+  vers `main` (titre `chore(release): <version>`). Une fois mergée, ouvrir une seconde PR de la même branche
+  vers `dev` (`gh pr create --base dev --head release/<version>`) pour y ramener le changement de version.
+- `main` est la branche par défaut (production) : toujours préciser `--base dev` pour une PR de travail.
 - Update [STATUS.md](STATUS.md), [CHANGELOG.md](../CHANGELOG.md) and the docs your change affects.
 - Engineering standards: `.claude/standards/` (they apply to humans too).
 

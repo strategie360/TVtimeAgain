@@ -53,7 +53,9 @@ Nom public : **RegePlaza** (une seule source : `src/lib/brand.ts`). « TVtimeAga
   `./scripts/docs-check.sh --base origin/dev`. `dev` est protégée comme `main` (pas de commit ni de push direct).
   Mise en production : branche `release/<version>` créée depuis `dev`, PR vers `main` (titre
   `chore(release): <version>`), avec le passage de `[Unreleased]` à la version dans `CHANGELOG.md` et la
-  version dans `package.json` et `docs/STATUS.md`. Jamais de PR directe `dev` → `main` (la CI refuse le nom `dev`).
+  version dans `package.json`, `package-lock.json` et `docs/STATUS.md`. Après son merge, seconde PR de la même
+  branche `release/<version>` vers `dev`. Jamais de PR directe `dev` → `main` (la CI refuse le nom `dev`).
+  `main` est la branche par défaut sur GitHub (production) : `--base dev` est donc obligatoire pour les PR de travail.
 - Langue : interface et documentation en français ; code, commits et noms de branches en anglais.
 - Variables d'environnement dans `.env.local` (jamais lu ni commité) ; noms et exemples dans `.env.example`.
 - Ne jamais lancer deux serveurs Next.js sur le même `distDir` (ça corrompt `.next` et provoque des 404).
