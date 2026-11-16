@@ -12,7 +12,7 @@ Hébergement retenu : Vercel Hobby + Neon Free, tant que le projet n'est pas com
 | Local | http://localhost:3000 | `npm run dev` | Postgres local, voir [DEVELOPMENT.md](DEVELOPMENT.md) |
 | Staging | URL de la preview de la branche `dev` (adresse stable par branche) | Branche `dev` | Base Neon séparée (branche Neon `dev`), migrée à chaque déploiement ; pas de cron (Vercel ne lance les crons qu'en production) |
 | Preview | URL générée par Vercel pour chaque PR | Branches de travail | Pas de migration, pas de base par défaut : les pages connectées y sont en erreur |
-| Production | TODO (URL Vercel ou domaine, pas encore créé) | Branche `main` | Vercel Hobby, région `fra1` ; base Neon Free |
+| Production | https://t-vtime-again.vercel.app (projet Vercel `t-vtime-again`) | Branche `main` | Vercel Hobby, fonctions en `fra1` ; base Neon Free, projet `red-art-80639366`, région `aws-eu-central-1`, branche `production` |
 
 ## Configuration
 
@@ -54,12 +54,12 @@ tournent qu'en production et sur la preview de `dev`, voir `planMigration` dans 
 ### Avant la première mise en ligne publique
 
 Les pages publiques affirment des choses qui doivent être vraies en production :
-- La base Neon est bien en **Union européenne (Francfort)**, comme l'indique la page Confidentialité.
-  Sinon, corriger `src/app/privacy/page.tsx`.
-- Les fonctions Vercel tournent en `fra1` (`vercel.json`).
+- ✓ La base Neon est bien en **Union européenne (Francfort)**, comme l'indique la page Confidentialité
+  (`aws-eu-central-1`, vérifié le 2026-11-16).
+- ✓ Les fonctions Vercel tournent en `fra1` (en-tête `x-vercel-id`, vérifié le 2026-11-16).
 - Mentions légales (page À propos) : la loi (LCEN) demande aussi l'adresse et le téléphone de l'hébergeur.
   TODO : les ajouter dans `src/app/about/page.tsx` depuis les conditions de Vercel et Neon.
-- L'adresse publique est renseignée dans `docs/USER_GUIDE.md` (TODO) et dans la section Environments.
+- ✓ L'adresse publique est renseignée dans `docs/USER_GUIDE.md` et dans la section Environments.
 
 ### À chaque mise en production
 
