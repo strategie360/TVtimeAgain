@@ -24,7 +24,9 @@ séries adaptés à tes goûts.
 - **Importer depuis Letterboxd** : sur letterboxd.com, va dans Settings → Import & Export →
   *Export Your Data*. Dans **Films**, touche « Importer Letterboxd » et choisis le fichier `.zip` reçu.
   Tes films vus, tes notes, tes dates et ta watchlist sont repris. Tu peux quitter la page pendant l'import.
-  À la fin, la liste des titres non reconnus s'affiche.
+  À la fin, la liste des titres non reconnus s'affiche. Les mini-séries de ton export (Chernobyl,
+  The Queen's Gambit…) ne sont pas importées comme des films : elles sont listées avec un lien pour les
+  suivre dans **Séries** et cocher tes épisodes.
 
 ## Suivre une série
 

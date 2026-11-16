@@ -286,6 +286,7 @@ export const userFeedback = pgTable(
 export const letterboxdMatches = pgTable("letterboxd_matches", {
   key: text("key").primaryKey(),
   movieId: integer("movie_id"),
+  showId: integer("show_id"), // mini-série (Letterboxd en contient) : movie_id est alors NULL
   matchedAt: timestamp("matched_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -313,8 +314,8 @@ export const imports = pgTable(
   (t) => [index("imports_user_idx").on(t.userId, t.createdAt.desc())],
 );
 
-/** 0=à traiter, 1=trouvé, 2=introuvable */
-export const ImportItemState = { pending: 0, matched: 1, notFound: 2 } as const;
+/** 0=à traiter, 1=film trouvé, 2=introuvable, 3=c'est une série (non importée, proposée à l'utilisateur) */
+export const ImportItemState = { pending: 0, matched: 1, notFound: 2, show: 3 } as const;
 
 export const importItems = pgTable(
   "import_items",
@@ -330,6 +331,7 @@ export const importItems = pgTable(
     rating: smallint("rating"),
     plays: smallint("plays").notNull().default(1),
     movieId: integer("movie_id"),
+    showId: integer("show_id"),
     state: smallint("state").notNull().default(ImportItemState.pending),
   },
   (t) => [primaryKey({ columns: [t.importId, t.idx] })],

@@ -2,11 +2,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { unzipSync, strFromU8 } from "fflate";
-import { detectFile, mergeLetterboxd } from "@/lib/letterboxd";
-import type { ImportRow } from "@/lib/imports";
+import { collectFiles, detectFile, mergeLetterboxd } from "@/lib/letterboxd";
+import type { ImportProgress, ImportRow } from "@/lib/imports";
 import { api } from "./client-api";
 
-type Progress = { id: number; status: number; total: number; processed: number; matched: number; not_found: { name: string; year: number | null }[] };
+type Progress = Omit<ImportProgress, "stalled">;
 
 export function ImportForm() {
   const [rows, setRows] = useState<ImportRow[] | null>(null);
@@ -16,19 +16,16 @@ export function ImportForm() {
 
   async function readFiles(list: FileList) {
     setError(null);
-    const files: Parameters<typeof mergeLetterboxd>[0] = {};
+    const entries: { path: string; text: string }[] = [];
     for (const f of Array.from(list)) {
       if (f.name.toLowerCase().endsWith(".zip")) {
         const zip = unzipSync(new Uint8Array(await f.arrayBuffer()), { filter: (e) => detectFile(e.name) !== null });
-        for (const [name, data] of Object.entries(zip)) {
-          const k = detectFile(name);
-          if (k) files[k] = strFromU8(data);
-        }
+        for (const [name, data] of Object.entries(zip)) entries.push({ path: name, text: strFromU8(data) });
       } else {
-        const k = detectFile(f.name);
-        if (k) files[k] = await f.text();
+        entries.push({ path: f.webkitRelativePath || f.name, text: await f.text() });
       }
     }
+    const files = collectFiles(entries);
     if (!Object.keys(files).length) return setError("Aucun fichier Letterboxd reconnu (watched.csv, diary.csv, ratings.csv, watchlist.csv).");
     setRows(mergeLetterboxd(files));
   }
@@ -38,7 +35,7 @@ export function ImportForm() {
     setBusy(true);
     try {
       const r = await api<{ id: number }>("/imports", "POST", { source: "letterboxd", items: rows });
-      setProgress({ id: r.id, status: 0, total: rows.length, processed: 0, matched: 0, not_found: [] });
+      setProgress({ id: r.id, status: 0, total: rows.length, processed: 0, matched: 0, not_found: [], shows: [] });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur");
       setBusy(false);
@@ -68,6 +65,23 @@ export function ImportForm() {
           {progress.processed} / {progress.total} traités · {progress.matched} films reconnus
           {!done && " · tu peux quitter la page, l'import continue."}
         </p>
+        {done && progress.shows.length > 0 && (
+          <div className="rounded-lg bg-surface-2 p-3 text-sm">
+            <p className="mb-2">
+              {progress.shows.length} titre(s) de ton export sont des <b>séries</b>, pas des films. Ouvre-les pour les
+              suivre et cocher tes épisodes :
+            </p>
+            <ul className="flex flex-wrap gap-2">
+              {progress.shows.map((s) => (
+                <li key={s.show_id}>
+                  <Link href={`/show/${s.show_id}`} className="inline-block rounded-full bg-surface px-3 py-1 hover:text-accent">
+                    {s.name}{s.year ? ` (${s.year})` : ""}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {done && progress.not_found.length > 0 && (
           <details className="text-sm">
             <summary className="cursor-pointer text-muted">{progress.not_found.length} titre(s) non reconnu(s)</summary>

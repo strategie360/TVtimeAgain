@@ -14,7 +14,11 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ImportItemState, ImportStatus, MovieStatus } from "@/db/schema";
 import { ensureMovie, pgArray } from "./catalog";
-import { findMovie } from "./tmdb";
+import { findLetterboxdTitle } from "./tmdb";
+
+/** Résultat d'une correspondance : un film, une série (non importée), ou rien. */
+type Match = { movie: number | null; show: number | null };
+const NONE: Match = { movie: null, show: null };
 
 export type ImportRow = {
   name: string;
@@ -83,10 +87,10 @@ export async function processImport(importId: number) {
 
       // 1) Correspondances déjà connues (cache partagé), en une requête.
       const keys = [...new Set(batch.map((b) => matchKey(b.name, b.year)))];
-      const known = new Map<string, number | null>();
-      for (const r of await db.execute<{ key: string; movie_id: number | null }>(sql`
-        SELECT key, movie_id FROM letterboxd_matches WHERE key = ANY(${pgArray(keys)}::text[])`)) {
-        known.set(r.key, r.movie_id);
+      const known = new Map<string, Match>();
+      for (const r of await db.execute<{ key: string; movie_id: number | null; show_id: number | null }>(sql`
+        SELECT key, movie_id, show_id FROM letterboxd_matches WHERE key = ANY(${pgArray(keys)}::text[])`)) {
+        known.set(r.key, { movie: r.movie_id, show: r.show_id });
       }
 
       // 2) Les inconnues : recherche TMDB en parallèle borné, puis mise en cache.
@@ -94,27 +98,30 @@ export async function processImport(importId: number) {
         const k = matchKey(b.name, b.year);
         return !known.has(k) && arr.findIndex((x) => matchKey(x.name, x.year) === k) === i;
       });
-      const found: { key: string; id: number | null }[] = [];
+      const found: { key: string; match: Match }[] = [];
       await pool(unknown, TMDB_PARALLEL, async (b) => {
         const key = matchKey(b.name, b.year);
         try {
-          const m = await findMovie(b.name, b.year);
-          found.push({ key, id: m?.id ?? null });
-          known.set(key, m?.id ?? null);
+          const m = await findLetterboxdTitle(b.name, b.year);
+          const match: Match = m ? { movie: m.kind === "movie" ? m.item.id : null, show: m.kind === "show" ? m.item.id : null } : NONE;
+          found.push({ key, match });
+          known.set(key, match);
         } catch {
           // Erreur réseau : on ne met pas en cache, l'élément sera marqué introuvable pour cet import.
-          known.set(key, null);
+          known.set(key, NONE);
         }
       });
       if (found.length) {
         await db.execute(sql`
-          INSERT INTO letterboxd_matches (key, movie_id)
-          SELECT * FROM unnest(${pgArray(found.map((f) => f.key))}::text[], ${pgArray(found.map((f) => f.id))}::int[])
-          ON CONFLICT (key) DO UPDATE SET movie_id = excluded.movie_id, matched_at = now()`);
+          INSERT INTO letterboxd_matches (key, movie_id, show_id)
+          SELECT * FROM unnest(${pgArray(found.map((f) => f.key))}::text[],
+                               ${pgArray(found.map((f) => f.match.movie))}::int[],
+                               ${pgArray(found.map((f) => f.match.show))}::int[])
+          ON CONFLICT (key) DO UPDATE SET movie_id = excluded.movie_id, show_id = excluded.show_id, matched_at = now()`);
       }
 
       // 3) Fiches films manquantes dans le catalogue (runtime nécessaire aux stats).
-      const ids = [...new Set([...known.values()].filter((v): v is number => v != null))];
+      const ids = [...new Set([...known.values()].map((m) => m.movie).filter((v): v is number => v != null))];
       const missing = ids.length
         ? (await db.execute<{ id: number }>(sql`
             SELECT x AS id FROM unnest(${pgArray(ids)}::int[]) x WHERE NOT EXISTS (SELECT 1 FROM movies WHERE id = x)`)).map((r) => r.id)
@@ -127,15 +134,16 @@ export async function processImport(importId: number) {
 
       // 4) Résultat de chaque ligne du lot.
       const idxs = batch.map((b) => b.idx);
-      const movieIds = batch.map((b) => {
-        const id = known.get(matchKey(b.name, b.year)) ?? null;
-        return id != null && !failed.has(id) ? id : null;
-      });
+      const matches = batch.map((b) => known.get(matchKey(b.name, b.year)) ?? NONE);
+      const movieIds = matches.map((m) => (m.movie != null && !failed.has(m.movie) ? m.movie : null));
+      const showIds = matches.map((m) => m.show);
       await db.transaction(async (tx) => {
         await tx.execute(sql`
-          UPDATE import_items i SET movie_id = u.movie_id,
-            state = CASE WHEN u.movie_id IS NULL THEN ${ImportItemState.notFound}::smallint ELSE ${ImportItemState.matched}::smallint END
-          FROM unnest(${pgArray(idxs)}::int[], ${pgArray(movieIds)}::int[]) AS u(idx, movie_id)
+          UPDATE import_items i SET movie_id = u.movie_id, show_id = u.show_id,
+            state = CASE WHEN u.movie_id IS NOT NULL THEN ${ImportItemState.matched}::smallint
+                         WHEN u.show_id IS NOT NULL THEN ${ImportItemState.show}::smallint
+                         ELSE ${ImportItemState.notFound}::smallint END
+          FROM unnest(${pgArray(idxs)}::int[], ${pgArray(movieIds)}::int[], ${pgArray(showIds)}::int[]) AS u(idx, movie_id, show_id)
           WHERE i.import_id = ${importId} AND i.idx = u.idx`);
 
         // 5) Application au compte : une requête pour tout le lot.
@@ -183,18 +191,24 @@ export type ImportProgress = {
   matched: number;
   stalled: boolean;
   not_found: { name: string; year: number | null }[];
+  /** Mini-séries trouvées dans l'export : non importées comme films, proposées à l'utilisateur. */
+  shows: { name: string; year: number | null; show_id: number }[];
 };
 
 export async function getImport(userId: number, importId: number): Promise<ImportProgress | null> {
-  const [imp] = await db.execute<Omit<ImportProgress, "not_found">>(sql`
+  const [imp] = await db.execute<Omit<ImportProgress, "not_found" | "shows">>(sql`
     SELECT id, status, total, processed, matched,
       (status IN (${ImportStatus.pending}, ${ImportStatus.running}) AND (lease_until IS NULL OR lease_until < now())) AS stalled
     FROM imports WHERE id = ${importId} AND user_id = ${userId}`);
   if (!imp) return null;
-  const notFound =
-    imp.status === ImportStatus.done
-      ? await db.execute<{ name: string; year: number | null }>(sql`
-          SELECT name, year FROM import_items WHERE import_id = ${importId} AND state = ${ImportItemState.notFound} ORDER BY idx LIMIT 200`)
-      : [];
-  return { ...imp, not_found: [...notFound] };
+  if (imp.status !== ImportStatus.done) return { ...imp, not_found: [], shows: [] };
+  const [notFound, shows] = await Promise.all([
+    db.execute<{ name: string; year: number | null }>(sql`
+      SELECT name, year FROM import_items WHERE import_id = ${importId} AND state = ${ImportItemState.notFound} ORDER BY idx LIMIT 200`),
+    db.execute<{ name: string; year: number | null; show_id: number }>(sql`
+      SELECT DISTINCT ON (show_id) name, year, show_id FROM import_items
+      WHERE import_id = ${importId} AND state = ${ImportItemState.show}
+      ORDER BY show_id, idx LIMIT 200`),
+  ]);
+  return { ...imp, not_found: [...notFound], shows: [...shows] };
 }
