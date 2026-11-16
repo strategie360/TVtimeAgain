@@ -23,3 +23,7 @@ Première version publique.
 - L'application s'appelle désormais RegePlaza.
 - Page « Mon compte » : télécharger toutes ses données et supprimer définitivement son compte.
 - Pages « À propos » (source des données TMDB, mentions légales) et « Confidentialité » (données collectées, droits).
+
+### Security
+
+- Next.js mis à jour en 15.5.29 et React en 19.1.10 : correction de la faille critique CVE-2025-66478.

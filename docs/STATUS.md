@@ -60,6 +60,9 @@ La première version publique (1.0.0) est prête ; sa mise en ligne attend la cr
 - `main` et `dev` ne sont pas protégées sur GitHub (offre gratuite + dépôt privé) : seuls les hooks locaux
   empêchent un push direct. Risque accepté tant que le projet n'a qu'un contributeur (décision 0003).
 - Le nom du dépôt « TVtimeAgain » reprend la marque « TV Time » ; le nom public est RegePlaza.
+- Dépendances (`npm audit`, 2026-11-16) : plus de faille critique depuis Next.js 15.5.29. Restent, sans
+  impact direct identifié : drizzle-orm (noms de tables, usage interne seulement ; correctif en 0.45), zod
+  (très grosses listes ; correctif en zod 4), postcss et sharp embarqués dans Next (correctif en Next 16).
 - Limitation de débit (rate limit) en mémoire, par instance : moins efficace sur Vercel (instances multiples).
 - Hébergement gratuit : Neon Free limité à 1 Go et 100 CU-heures par mois, restauration sur 6 h seulement ;
   Vercel Hobby réservé à un usage non commercial. Changer d'offre avant toute monétisation (décision 0002).
