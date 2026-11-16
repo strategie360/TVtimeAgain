@@ -42,7 +42,9 @@ Le template de développement suppose un flux direct vers `main` :
 - **Aucune protection côté GitHub** : l'organisation est sur l'offre gratuite et le dépôt est privé ; GitHub
   refuse les règles de protection et les rulesets (« Upgrade to GitHub Pro or make this repository public »,
   vérifié le 2026-11-16). Seuls les hooks locaux protègent `main` et `dev` : un push direct reste possible
-  depuis une machine sans les hooks, ou en les contournant volontairement.
+  depuis une machine sans les hooks, ou en les contournant volontairement. Choix du 2026-11-16 : les hooks
+  locaux suffisent tant qu'une seule personne travaille sur le projet ; à revoir (GitHub Team) dès qu'un
+  autre contributeur arrive.
 - `dev` est la branche par défaut sur GitHub : les PR la visent automatiquement.
 - La CI `web-ts` tourne sur toutes les PR (vers `dev` comme vers `main`), mais pas sur les push vers `dev`.
 - Une deuxième base Neon (branche `dev`) consomme une partie des limites gratuites (stockage, CU-heures).

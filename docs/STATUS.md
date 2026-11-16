@@ -55,7 +55,7 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore 
 - Licence TMDB : l'API gratuite est réservée à un usage non commercial ; une licence commerciale est
   nécessaire avant toute monétisation.
 - `main` et `dev` ne sont pas protégées sur GitHub (offre gratuite + dépôt privé) : seuls les hooks locaux
-  empêchent un push direct. Possible avec GitHub Team ou un dépôt public (décision 0003).
+  empêchent un push direct. Risque accepté tant que le projet n'a qu'un contributeur (décision 0003).
 - Le nom « TVtimeAgain » reprend la marque « TV Time » : risque juridique pour un produit public.
 - Limitation de débit (rate limit) en mémoire, par instance : moins efficace sur Vercel (instances multiples).
 - Hébergement gratuit : Neon Free limité à 1 Go et 100 CU-heures par mois, restauration sur 6 h seulement ;
