@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { SwRegister } from "@/components/sw-register";
+import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: { default: "NextUp", template: "%s · NextUp" },
-  description: "Suis tes séries et tes films, épisode par épisode.",
-  applicationName: "NextUp",
-  appleWebApp: { capable: true, title: "NextUp", statusBarStyle: "black-translucent" },
+  title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
+  description: APP_TAGLINE,
+  applicationName: APP_NAME,
+  appleWebApp: { capable: true, title: APP_NAME, statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

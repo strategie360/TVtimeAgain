@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
+import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "NextUp",
-    short_name: "NextUp",
-    description: "Suis tes séries et tes films, épisode par épisode.",
+    name: APP_NAME,
+    short_name: APP_NAME,
+    description: APP_TAGLINE,
     start_url: "/",
     display: "standalone",
     background_color: "#0b0d12",

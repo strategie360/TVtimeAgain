@@ -51,6 +51,16 @@ tournent qu'en production et sur la preview de `dev`, voir `planMigration` dans 
    Les autres previews n'ont pas de base : leur build réussit, mais les pages connectées y sont en erreur.
 5. Lancer un premier déploiement (push sur `main`) ; les migrations s'appliquent pendant le build.
 
+### Avant la première mise en ligne publique
+
+Les pages publiques affirment des choses qui doivent être vraies en production :
+- La base Neon est bien en **Union européenne (Francfort)**, comme l'indique la page Confidentialité.
+  Sinon, corriger `src/app/privacy/page.tsx`.
+- Les fonctions Vercel tournent en `fra1` (`vercel.json`).
+- Mentions légales (page À propos) : la loi (LCEN) demande aussi l'adresse et le téléphone de l'hébergeur.
+  TODO : les ajouter dans `src/app/about/page.tsx` depuis les conditions de Vercel et Neon.
+- L'adresse publique est renseignée dans `docs/USER_GUIDE.md` (TODO) et dans la section Environments.
+
 ### À chaque mise en production
 
 - Le travail arrive d'abord sur `dev` (déployé en staging), puis passe en production par une branche
