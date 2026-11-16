@@ -102,6 +102,8 @@ export type TmdbShow = {
   episode_run_time?: number[];
   number_of_seasons: number;
   popularity: number;
+  vote_average?: number;
+  vote_count?: number;
   seasons: { season_number: number }[];
 };
 export type TmdbMovie = {
@@ -114,6 +116,8 @@ export type TmdbMovie = {
   runtime: number | null;
   genres?: { id: number }[];
   popularity: number;
+  vote_average?: number;
+  vote_count?: number;
 };
 export type TmdbSearchItem = {
   id: number;

@@ -3,6 +3,7 @@ import { db } from "@/db";
 
 const TABLES = [
   "import_items", "imports", "letterboxd_matches", "user_feedback", "link_fetches", "item_links",
+  "media_features", "people", "director_credits",
   "media_summary", "watched_episodes", "user_shows", "user_movies", "sessions", "users",
   "episodes", "shows", "movies", "sync_state",
 ];

@@ -1,17 +1,22 @@
 import Link from "next/link";
 import { after } from "next/server";
 import { pageUser } from "@/lib/auth";
-import { recommend } from "@/lib/recs";
+import { recommendRows } from "@/lib/recs";
 import { RecCard } from "@/components/rec-card";
+import { RecRowCarousel } from "@/components/rec-row";
 import { Empty, PageTitle } from "@/components/ui";
 
 export const metadata = { title: "Pour toi" };
 
+const MAIN_CARDS = 6; // titres de la sélection principale affichés en cartes (avec boutons)
+
 export default async function DiscoverPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
   const user = await pageUser();
   const kind = (await searchParams).kind === "show" ? "show" : "movie";
-  const recs = await recommend(user.id, { kind, limit: 30, background: (p) => after(p) });
-  const personal = recs.filter((r) => r.reason !== "Incontournable du moment").length;
+  const rows = await recommendRows(user.id, { kind, background: (p) => after(p) });
+  const [main, ...others] = rows;
+  const personal = (main?.items ?? []).filter((r) => r.reason !== "Incontournable du moment").length;
+  const rest = main ? { ...main, id: "for-you-more", title: "Encore pour toi", items: main.items.slice(MAIN_CARDS) } : null;
 
   return (
     <>
@@ -28,14 +33,20 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
           <Link href="/import" className="font-semibold text-accent underline">importe Letterboxd</Link>.
         </div>
       )}
-      {recs.length ? (
-        <ul className="space-y-3">
-          {recs.map((r) => (
-            <RecCard key={`${r.kind}-${r.id}`} rec={r} />
-          ))}
-        </ul>
-      ) : (
+      {!main || !main.items.length ? (
         <Empty>Rien à proposer pour l&apos;instant.</Empty>
+      ) : (
+        <>
+          <ul className="mb-7 space-y-3">
+            {main.items.slice(0, MAIN_CARDS).map((r) => (
+              <RecCard key={`${r.kind}-${r.id}`} rec={r} />
+            ))}
+          </ul>
+          {others.map((row) => (
+            <RecRowCarousel key={row.id} row={row} />
+          ))}
+          {rest && rest.items.length > 0 && <RecRowCarousel row={rest} />}
+        </>
       )}
     </>
   );

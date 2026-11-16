@@ -72,6 +72,7 @@ flowchart LR
 | `users`, `sessions` | Comptes et sessions | Email (donnée personnelle), mot de passe en scrypt, sessions stockées en sha256 |
 | `user_shows`, `watched_episodes`, `user_movies` | Suivi, épisodes vus, films, notes | `watched_episodes` est la table qui grossit : clé composite int4 |
 | `media_summary`, `item_links`, `link_fetches` | Graphe de recommandations | Partagé ; liens TMDB + co-visionnage |
+| `media_features`, `people`, `director_credits` | Signaux de contenu (réalisateurs, acteurs, mots-clés) et filmographies | Partagé ; récupéré une fois par titre ou par personne |
 | `user_feedback` | « Pas pour moi » | Par utilisateur |
 | `imports`, `import_items`, `letterboxd_matches` | Imports et cache de correspondance | Cache partagé |
 | `sync_state` | Curseur du job quotidien | |

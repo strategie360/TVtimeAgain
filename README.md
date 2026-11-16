@@ -136,9 +136,9 @@ Rate limit sur l'inscription et la connexion. Tout le SQL est paramétré.
 
 ## Recommandations (`/discover`, `GET /api/v1/recommendations?kind=movie|show`)
 
-`score = CF × qualité × affinité de genres`, puis re-classement pour la diversité (voir `src/lib/recs.ts`).
+`score = CF × qualité × affinité de genres × notoriété²`, puis re-classement pour la diversité (voir `src/lib/recs.ts`).
 
-1. **Graines** : tout ce que l'utilisateur a vu, noté, mis en liste ou abandonné, avec un poids dans [-1, 1]
+1. **Graines** (jusqu'à 300) : tout ce que l'utilisateur a vu, noté, mis en liste ou abandonné, avec un poids dans [-1, 1]
    (note centrée, engagement sur les séries, favori, décroissance temporelle).
    Un titre détesté **repousse** ses voisins.
 2. **Filtrage collaboratif item-item** sur un graphe partagé `item_links` :
@@ -147,11 +147,28 @@ Rate limit sur l'inscription et la connexion. Tout le SQL est paramétré.
      Ils peuvent relier un film à une série.
 3. **Qualité** : moyenne bayésienne de la note TMDB.
 4. **Affinité de genres**, avec correspondance des genres films ↔ séries de TMDB.
+4 bis. **Profil de notoriété** : à quel point les titres qu'il aime sont connus (nombre de votes TMDB, stocké
+   dans le catalogue). Un candidat nettement plus confidentiel que d'habitude est pénalisé, jamais un plus connu.
 5. **Diversité** : on pénalise plusieurs titres issus de la même graine ou du même genre.
 6. **Démarrage à froid** : titres les plus votés de ses genres préférés, puis les incontournables.
 7. Chaque suggestion est **expliquée** (« Parce que tu as aimé X »). « Pas pour moi » l'exclut ensuite.
+8. **Rangées** (`recommendRows`, `GET /api/v1/recommendations/rows?kind=movie|show`), un titre par rangée au plus :
+   « Pour toi » (l'algorithme principal), « Parce que tu as aimé X » (voisins de deux coups de cœur),
+   « De [réalisateur] » (réalisateurs dont il a aimé au moins 2 films, longs-métrages connus seulement),
+   « Pépites méconnues » (très bien notées, moins connues que d'habitude, dans ses genres, reliées à 2 titres aimés).
+   Signaux de contenu et filmographies : `src/lib/features.ts`, une fois par titre ou par personne pour tout le monde.
 
-Mesures (`npm run recs:eval`, 10 000 users en familles de goûts, 2,2 M épisodes vus) :
+Mesuré aussi, et **non retenu dans le score principal** : la ressemblance de contenu (réalisateurs, acteurs,
+mots-clés : AUC 0,80 au lieu de 0,799) et les films des réalisateurs aimés (rappel@50 0,163 au lieu de 0,156,
+dans le bruit, avec plus de blockbusters). Ces signaux servent aux rangées, pas au classement.
+
+Mesure sur un vrai historique (`npm run recs:holdout -- <dossier d'export Letterboxd>`, base locale) : on cache 20 %
+des films notés ≥ 8/10 et on compte ceux que « Pour toi » retrouve parmi 50 propositions. Sur un export de 1 044
+titres, 3 tirages : rappel@50 de **0,109 → 0,156** (+43 %) avec le profil de notoriété et 300 graines. Le nombre de
+votes TMDB est le signal le plus discriminant mesuré (AUC 0,97) ; centrer les notes sur la moyenne de
+l'utilisateur ou pénaliser la popularité fait baisser le score. `--analyse` affiche l'AUC de chaque signal.
+
+Mesure synthétique (`npm run recs:eval`, 10 000 users en familles de goûts, 2,2 M épisodes vus) :
 précision@10 = **100 %** (hasard : 2 %), latence **8 ms en médiane, 15 ms au p95**.
 Le calcul du graphe collaboratif prend 2,2 s. Il tient dans Postgres jusqu'à ~100 k utilisateurs actifs ;
 au-delà, le même calcul passe dans un job batch dédié qui réécrit `item_links`.

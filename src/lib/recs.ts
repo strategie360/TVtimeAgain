@@ -1,7 +1,7 @@
 /**
  * Moteur de recommandation hybride (films + séries).
  *
- *   score(c) = CF(c) × qualité(c) × affinité_genres(c), puis re-classement pour la diversité
+ *   score(c) = CF(c) × qualité(c) × affinité_genres(c) × notoriété(c)², puis re-classement pour la diversité
  *
  * 1. GRAINES : tout ce que l'utilisateur a vu, noté, mis en liste, avec un poids
  *    w ∈ [-1, 1] : note centrée (10/10 → +1, 1/10 → -1), engagement pour les
@@ -19,10 +19,16 @@
  *
  * 4. AFFINITÉ DE GENRES : profil de genres de l'utilisateur, pondéré par ses notes.
  *
+ * 4 bis. NOTORIÉTÉ : à quel point les titres qu'il aime sont connus (nombre de votes TMDB). Un candidat
+ *    nettement plus confidentiel que d'habitude est pénalisé, jamais un plus connu. C'est le signal le
+ *    plus discriminant mesuré sur un vrai historique (voir notorietyProfile).
+ *
  * 5. DIVERSITÉ : re-classement glouton qui pénalise les titres venant de la même
  *    graine ou du même genre principal, pour éviter « 10 films Marvel d'affilée ».
  *
  * Chaque recommandation est EXPLIQUÉE (« Parce que tu as aimé X »).
+ *
+ * Réglages (DEFAULT_TUNING) choisis par mesure hors ligne : `npm run recs:holdout -- <export Letterboxd>`.
  *
  * Coût : tout est lu en local (graphe pré-calculé), 2 requêtes SQL par appel.
  * TMDB n'est appelé que pour les graines jamais vues par AUCUN utilisateur.
@@ -31,10 +37,37 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { Kind, LinkSource } from "@/db/schema";
 import { pgArray } from "./catalog";
+import { contentProfile, ensureDirectorCredits, ensureFeatures, loadFeatures } from "./features";
+import { toSummary, upsertSummaries } from "./media-summary";
 import { discoverByGenres, fetchList, fetchRecommendations, type TmdbListItem } from "./tmdb";
 
 const LINK_TTL_DAYS = 30;
-const MAX_SEEDS = 40;
+/**
+ * Réglages de l'algorithme. Les valeurs par défaut sont celles mesurées comme les meilleures
+ * (npm run recs:holdout) ; on peut les surcharger pour une expérience.
+ */
+export type Tuning = {
+  maxSeeds: number; // graines (titres de l'utilisateur) utilisées pour trouver les candidats
+  popularityFit: number; // poids du profil de notoriété (0 = ignoré) : favorise les titres aussi connus que ceux qu'il aime
+  cfExponent: number; // poids de la proximité avec ses titres (exposant du score collaboratif)
+  candidatePool: number; // candidats évalués, pris parmi les mieux reliés à ses titres
+  directorWeight: number; // poids des films de ses réalisateurs préférés (0 = source désactivée)
+  directorCount: number; // nombre de réalisateurs préférés dont on explore la filmographie
+  diversitySeed: number; // facteur appliqué à chaque nouveau titre issu de la même graine (1 = aucun effet)
+  diversityGenre: number; // idem pour le même genre principal
+};
+// Mesuré le 2026-11-16 sur un vrai historique (1 044 titres, 92 films cachés, 3 tirages) :
+// rappel@50 de 0,109 (40 graines, sans profil de notoriété) à 0,156.
+export const DEFAULT_TUNING: Tuning = {
+  maxSeeds: 300,
+  popularityFit: 2,
+  cfExponent: 1,
+  candidatePool: 600,
+  directorWeight: 0,
+  directorCount: 20,
+  diversitySeed: 0.8,
+  diversityGenre: 0.92,
+};
 const SYNC_FETCH = 8; // graines dont on va chercher les liens tout de suite (le reste en arrière-plan)
 const BAYES_M = 300; // nombre de votes « virtuels »
 const BAYES_C = 6.8; // note moyenne a priori
@@ -52,37 +85,10 @@ export type Recommendation = {
   reason: string;
 };
 
-type Seed = { kind: number; id: number; w: number; genre_ids: number[]; name: string; linked: boolean };
+type Seed = { kind: number; id: number; w: number; genre_ids: number[]; name: string; linked: boolean; vote_count: number | null };
 
 // ─────────────────────────── Graphe TMDB ───────────────────────────
 
-const toSummary = (kind: number, r: TmdbListItem) => ({
-  kind,
-  id: r.id,
-  title: r.title ?? r.name ?? "",
-  poster: r.poster_path,
-  year: Number((r.release_date ?? r.first_air_date ?? "").slice(0, 4)) || null,
-  genres: r.genre_ids ?? [],
-  va: r.vote_average ?? 0,
-  vc: r.vote_count ?? 0,
-  pop: r.popularity ?? 0,
-});
-
-export async function upsertSummaries(rows: ReturnType<typeof toSummary>[]) {
-  if (!rows.length) return;
-  const uniq = [...new Map(rows.map((r) => [`${r.kind}:${r.id}`, r])).values()];
-  await db.execute(sql`
-    INSERT INTO media_summary (kind, id, title, poster_path, year, genre_ids, vote_average, vote_count, popularity, updated_at)
-    SELECT k, i, t, p, y, coalesce(string_to_array(nullif(g, ''), ',')::smallint[], '{}'), va, vc, pop, now() FROM unnest(
-      ${pgArray(uniq.map((r) => r.kind))}::smallint[], ${pgArray(uniq.map((r) => r.id))}::int[],
-      ${pgArray(uniq.map((r) => r.title))}::text[], ${pgArray(uniq.map((r) => r.poster))}::text[],
-      ${pgArray(uniq.map((r) => r.year))}::smallint[], ${pgArray(uniq.map((r) => r.genres.join(",")))}::text[],
-      ${pgArray(uniq.map((r) => r.va))}::real[], ${pgArray(uniq.map((r) => r.vc))}::int[],
-      ${pgArray(uniq.map((r) => r.pop))}::real[]) AS u(k, i, t, p, y, g, va, vc, pop)
-    ON CONFLICT (kind, id) DO UPDATE SET title = excluded.title, poster_path = excluded.poster_path,
-      year = excluded.year, genre_ids = excluded.genre_ids, vote_average = excluded.vote_average,
-      vote_count = excluded.vote_count, popularity = excluded.popularity, updated_at = now()`);
-}
 
 const inflight = new Map<string, Promise<void>>();
 
@@ -140,19 +146,20 @@ const toKindGenre = (g: number, kind: number) => (kind === Kind.show ? MOVIE_TO_
 // ─────────────────────────── Graines ───────────────────────────
 
 async function loadSeeds(userId: number): Promise<Seed[]> {
+  // Notes centrées sur 5,5/10. (Centrer sur la moyenne de l'utilisateur a été mesuré : moins bon.)
   // Décroissance : facteur 0,5 + 0,5·e^(-âge/1 an).
   const rows = await db.execute<Seed>(sql`
-    WITH s AS (
-      SELECT ${Kind.movie}::int AS kind, um.movie_id AS id, m.genre_ids, m.title AS name,
+    WITH c AS (SELECT 5.5::real AS center), s AS (
+      SELECT ${Kind.movie}::int AS kind, um.movie_id AS id, m.genre_ids, m.title AS name, m.vote_count,
         (CASE WHEN um.status = 0 THEN 0.25
               WHEN um.rating IS NULL THEN 0.6
-              ELSE (um.rating - 5.5) / 4.5 END)
+              ELSE greatest(-1, least(1, (um.rating - (SELECT center FROM c)) / 4.5)) END)
         * (0.5 + 0.5 * exp(-extract(epoch FROM now() - coalesce(um.watched_at, um.added_at)) / 31536000.0)) AS w
       FROM user_movies um JOIN movies m ON m.id = um.movie_id
       WHERE um.user_id = ${userId}
       UNION ALL
-      SELECT ${Kind.show}, us.show_id, s.genre_ids, s.name,
-        (CASE WHEN us.rating IS NOT NULL THEN (us.rating - 5.5) / 4.5
+      SELECT ${Kind.show}, us.show_id, s.genre_ids, s.name, s.vote_count,
+        (CASE WHEN us.rating IS NOT NULL THEN greatest(-1, least(1, (us.rating - (SELECT center FROM c)) / 4.5))
               WHEN us.status = 3 THEN -0.5
               WHEN us.watched_count = 0 THEN 0.25
               ELSE 0.3 + 0.7 * least(1, us.watched_count::real / greatest(1, least(s.aired_episodes, 20))) END)
@@ -161,7 +168,7 @@ async function loadSeeds(userId: number): Promise<Seed[]> {
       FROM user_shows us JOIN shows s ON s.id = us.show_id
       WHERE us.user_id = ${userId}
     )
-    SELECT s.kind, s.id, s.genre_ids, s.name, s.w::real AS w,
+    SELECT s.kind, s.id, s.genre_ids, s.name, s.vote_count, s.w::real AS w,
            (lf.fetched_at IS NOT NULL AND lf.fetched_at > now() - ${`${LINK_TTL_DAYS} days`}::interval) AS linked
     FROM s LEFT JOIN link_fetches lf ON lf.kind = s.kind AND lf.id = s.id`);
   return [...rows];
@@ -177,6 +184,33 @@ function genreProfile(seeds: Seed[]) {
     }
   const max = Math.max(1e-6, ...[...acc.values()].map(Math.abs));
   return new Map([...acc].map(([g, v]) => [g, v / max]));
+}
+
+/**
+ * Profil de notoriété : à quel point les titres qu'il aime sont connus (moyenne et dispersion du
+ * log10 du nombre de votes TMDB, pondérées par son appréciation). Mesuré sur un vrai historique, c'est
+ * le signal qui distingue le mieux ce qu'un utilisateur aimera parmi les candidats (AUC 0,97).
+ * Personnel : un amateur de films confidentiels obtient l'effet inverse d'un amateur de classiques.
+ */
+export function notorietyProfile(seeds: { w: number; vote_count: number | null }[]) {
+  const liked = seeds.filter((s) => s.w > 0 && s.vote_count != null);
+  const total = liked.reduce((a, s) => a + s.w, 0);
+  if (liked.length < 5 || total <= 0) return null; // trop peu d'historique pour en tirer un profil
+  const logs = liked.map((s) => ({ l: Math.log10(s.vote_count! + 1), w: s.w }));
+  const mean = logs.reduce((a, x) => a + x.w * x.l, 0) / total;
+  const variance = logs.reduce((a, x) => a + x.w * (x.l - mean) ** 2, 0) / total;
+  return { mean, sigma: Math.max(0.35, Math.sqrt(variance)) };
+}
+
+/**
+ * Ressemblance (0..1] entre la notoriété d'un candidat et le profil de l'utilisateur. À sens unique :
+ * un titre plus connu que d'habitude n'est jamais pénalisé, seul un titre nettement plus confidentiel
+ * l'est (on aime rarement ce qui est bien plus obscur que ce qu'on regarde).
+ */
+export function notorietyFit(voteCount: number, profile: { mean: number; sigma: number } | null) {
+  if (!profile) return 1;
+  const z = (Math.log10(voteCount + 1) - profile.mean) / profile.sigma;
+  return z >= 0 ? 1 : Math.exp(-0.5 * z * z);
 }
 
 // ─────────────────────────── Recommandation ───────────────────────────
@@ -196,15 +230,16 @@ type Candidate = {
   support: number;
 };
 
-export async function recommend(
-  userId: number,
-  opts: { kind?: KindName; limit?: number; background?: (p: Promise<unknown>) => void } = {},
-): Promise<Recommendation[]> {
+type RecOptions = { kind?: KindName; limit?: number; background?: (p: Promise<unknown>) => void; tuning?: Partial<Tuning> };
+
+/** Calcule et note tous les candidats d'un utilisateur (partagé par « Pour toi » et les rangées). */
+async function scoreCandidates(userId: number, opts: RecOptions) {
   const limit = Math.min(opts.limit ?? 30, 100);
+  const tuning = { ...DEFAULT_TUNING, ...opts.tuning };
   const seeds = await loadSeeds(userId);
 
   // Graines « fortes » d'abord (positives) ; on garde quelques négatives pour repousser.
-  const ranked = [...seeds].sort((a, b) => Math.abs(b.w) - Math.abs(a.w)).slice(0, MAX_SEEDS);
+  const ranked = [...seeds].sort((a, b) => Math.abs(b.w) - Math.abs(a.w)).slice(0, tuning.maxSeeds);
 
   // Liens manquants : les plus importantes tout de suite, le reste en arrière-plan.
   // Les titres détestés aussi : leurs voisins seront repoussés.
@@ -220,6 +255,7 @@ export async function recommend(
   }
 
   const profile = genreProfile(seeds);
+  const notoriety = notorietyProfile(seeds);
   const wanted = opts.kind ? [kindNum(opts.kind)] : [Kind.movie, Kind.show];
 
   let candidates: Candidate[] = [];
@@ -250,44 +286,246 @@ export async function recommend(
           AND NOT EXISTS (SELECT 1 FROM user_shows us WHERE a.kind = ${Kind.show} AND us.user_id = ${userId} AND us.show_id = a.id)
           AND NOT EXISTS (SELECT 1 FROM user_feedback f WHERE f.user_id = ${userId} AND f.kind = a.kind AND f.item_id = a.id)
         ORDER BY a.cf DESC
-        LIMIT 600`)),
+        LIMIT ${Math.max(tuning.candidatePool, limit * 12)}`)),
     ];
   }
 
+  // Deuxième source : la filmographie de ses réalisateurs préférés. Mesuré : environ 6 films aimés sur 10
+  // que le graphe n'atteint pas sont de réalisateurs dont il a aimé d'autres films.
+  const directors =
+    tuning.directorWeight > 0 && wanted.includes(Kind.movie)
+      ? await directorCandidates(userId, seeds, tuning, opts.background)
+      : null;
+
+  // Fusion des deux sources : chaque score est ramené entre 0 et 1, puis additionné.
+  const maxCf = Math.max(1e-9, ...candidates.map((c) => c.cf));
+  type Entry = { c: Candidate; cf: number; director: number; person: number | null };
+  const entries = new Map<string, Entry>(candidates.map((c) => [`${c.kind}:${c.id}`, { c, cf: c.cf / maxCf, director: 0, person: null }]));
+  if (directors) {
+    const maxDir = Math.max(1e-9, ...directors.rows.map((r) => r.score));
+    for (const r of directors.rows) {
+      const key = `${Kind.movie}:${r.id}`;
+      const e = entries.get(key) ?? { c: { ...r, cf: 0, support: 0, top_seed_kind: -1, top_seed_id: r.person }, cf: 0, director: 0, person: null };
+      e.director = r.score / maxDir;
+      e.person = r.person;
+      entries.set(key, e);
+    }
+  }
+
   const seedName = new Map(seeds.map((s) => [`${s.kind}:${s.id}`, s.name]));
-  const scored = candidates.map((c) => {
-    const q = (c.vote_count * c.vote_average + BAYES_M * BAYES_C) / (c.vote_count + BAYES_M);
+  const scored = [...entries.values()].map(({ c: c0, cf, director, person }) => {
+    const q = (c0.vote_count * c0.vote_average + BAYES_M * BAYES_C) / (c0.vote_count + BAYES_M);
     const quality = Math.min(1.3, Math.max(0.2, (q - 5) / 3));
-    const gs = c.genre_ids ?? [];
+    const gs = c0.genre_ids ?? [];
     const aff = gs.length ? gs.reduce((a, g) => a + (profile.get(g) ?? 0), 0) / gs.length : 0;
+    const fit = notorietyFit(c0.vote_count, notoriety) ** tuning.popularityFit;
+    const fromGraph = cf ** tuning.cfExponent;
+    const fromDirector = tuning.directorWeight * director;
+    const byDirector = person !== null && fromDirector > fromGraph;
+    // Pour la diversité, un titre venu d'un réalisateur compte comme issu de ce réalisateur.
+    const c = byDirector ? { ...c0, top_seed_kind: -1, top_seed_id: person! } : c0;
+    const liked = byDirector ? directors!.likedCount.get(person!) ?? 0 : 0;
     return {
       c,
-      score: c.cf * quality * (1 + 0.5 * aff),
-      reason:
-        c.support > 2
+      bayes: q,
+      fit,
+      genreAffinity: aff,
+      score: (fromGraph + fromDirector) * quality * (1 + 0.5 * aff) * fit,
+      reason: byDirector
+        ? `De ${directors!.names.get(person!) ?? "un réalisateur que tu aimes"}, dont tu as aimé ${liked} film${liked > 1 ? "s" : ""}`
+        : c.support > 2
           ? `Proche de ${seedName.get(`${c.top_seed_kind}:${c.top_seed_id}`)} et ${c.support - 1} autres titres que tu as aimés`
           : `Parce que tu as aimé ${seedName.get(`${c.top_seed_kind}:${c.top_seed_id}`)}`,
     };
   });
 
-  const picked = diversify(scored, limit);
-  const out: Recommendation[] = picked.map(({ c, score, reason }) => ({
-    kind: c.kind === Kind.movie ? "movie" : "show",
-    id: c.id,
-    title: c.title,
-    poster_path: c.poster_path,
-    year: c.year,
-    score: Math.round(score * 1000) / 1000,
-    reason,
-  }));
+  return { scored, seeds, profile, notoriety, wanted, tuning, limit };
+}
 
+type Scored = Awaited<ReturnType<typeof scoreCandidates>>["scored"][number];
+
+const toRecommendation = ({ c, score, reason }: Scored): Recommendation => ({
+  kind: c.kind === Kind.movie ? "movie" : "show",
+  id: c.id,
+  title: c.title,
+  poster_path: c.poster_path,
+  year: c.year,
+  score: Math.round(score * 1000) / 1000,
+  reason,
+});
+
+export async function recommend(userId: number, opts: RecOptions = {}): Promise<Recommendation[]> {
+  const { scored, profile, wanted, tuning, limit } = await scoreCandidates(userId, opts);
+  const out = diversify(scored, limit, tuning).map(toRecommendation);
   // Démarrage à froid (ou historique trop maigre) : titres populaires, triés par affinité.
   if (out.length < limit) out.push(...(await coldStart(userId, wanted, profile, limit - out.length, new Set(out.map((r) => `${r.kind}:${r.id}`)))));
   return out;
 }
 
+// ─────────────────────────── Rangées de « Pour toi » ───────────────────────────
+
+export type RecRow = { id: string; title: string; subtitle?: string; items: Recommendation[] };
+
+const ROW_SIZE = 12;
+const MIN_ROW = 4; // une rangée plus courte n'est pas affichée
+
+/**
+ * « Pour toi » en rangées, chacune avec sa raison d'être : la sélection principale, « Parce que tu as aimé X »,
+ * « De [réalisateur] », « Pépites méconnues ». Un titre n'apparaît que dans une rangée.
+ */
+export async function recommendRows(userId: number, opts: { kind: KindName; background?: (p: Promise<unknown>) => void }): Promise<RecRow[]> {
+  const ctx = await scoreCandidates(userId, { kind: opts.kind, limit: 60, background: opts.background });
+  const byKey = new Map(ctx.scored.map((x) => [`${x.c.kind}:${x.c.id}`, x]));
+  const used = new Set<string>();
+  const take = (items: Recommendation[], n = ROW_SIZE) => {
+    const out: Recommendation[] = [];
+    for (const it of items) {
+      const k = `${kindNum(it.kind)}:${it.id}`;
+      if (used.has(k)) continue;
+      used.add(k);
+      out.push(it);
+      if (out.length === n) break;
+    }
+    return out;
+  };
+  const rows: RecRow[] = [];
+
+  // 1. La sélection principale (avec l'explication de chaque titre).
+  const main = diversify(ctx.scored, 40, ctx.tuning).map(toRecommendation);
+  let forYou = take(main);
+  if (forYou.length < ROW_SIZE) {
+    // coldStart identifie les titres par « movie:123 » / « show:123 ».
+    const exclude = new Set([...used].map((k) => `${k.startsWith(`${Kind.movie}:`) ? "movie" : "show"}:${k.split(":")[1]}`));
+    const extra = await coldStart(userId, ctx.wanted, ctx.profile, ROW_SIZE - forYou.length, exclude);
+    forYou = [...forYou, ...take(extra)];
+  }
+  rows.push({ id: "for-you", title: "Pour toi", items: forYou });
+
+  // 2. « Parce que tu as aimé X » : ses titres les plus marquants, et leurs voisins encore jamais vus.
+  const kind = kindNum(opts.kind);
+  const favorites = ctx.seeds.filter((s) => s.kind === kind && s.w >= 0.6).sort((a, b) => b.w - a.w).slice(0, 8);
+  for (const seed of favorites) {
+    if (rows.filter((r) => r.id.startsWith("because-")).length === 2) break;
+    const links = await db.execute<{ dst_id: number; score: number }>(sql`
+      SELECT dst_id, max(score)::real AS score FROM item_links
+      WHERE src_kind = ${seed.kind} AND src_id = ${seed.id} AND dst_kind = ${kind}
+      GROUP BY dst_id ORDER BY score DESC LIMIT 40`);
+    const items = links
+      .map((l) => byKey.get(`${kind}:${l.dst_id}`) && { l, x: byKey.get(`${kind}:${l.dst_id}`)! })
+      .filter((v): v is { l: (typeof links)[number]; x: Scored } => !!v)
+      .sort((a, b) => b.l.score * b.x.fit * b.x.bayes - a.l.score * a.x.fit * a.x.bayes)
+      .map(({ x }) => ({ ...toRecommendation(x), reason: `Parce que tu as aimé ${seed.name}` }));
+    const picked = take(items);
+    if (picked.length >= MIN_ROW) rows.push({ id: `because-${seed.kind}-${seed.id}`, title: `Parce que tu as aimé ${seed.name}`, items: picked });
+    else picked.forEach((it) => used.delete(`${kindNum(it.kind)}:${it.id}`));
+  }
+
+  // 3. « De [réalisateur] » : ses réalisateurs préférés dont il reste des films à voir (films seulement).
+  if (kind === Kind.movie) {
+    const directors = await directorCandidates(userId, ctx.seeds, { ...ctx.tuning, directorCount: 12 }, opts.background);
+    const byPerson = new Map<number, (Candidate & { score: number; person: number })[]>();
+    for (const r of directors.rows) byPerson.set(r.person, [...(byPerson.get(r.person) ?? []), r]);
+    const persons = [...byPerson.keys()].sort((a, b) => (directors.likedCount.get(b) ?? 0) - (directors.likedCount.get(a) ?? 0));
+    for (const person of persons) {
+      if (rows.filter((r) => r.id.startsWith("director-")).length === 2) break;
+      const liked = directors.likedCount.get(person) ?? 0;
+      if (liked < 2) continue;
+      const name = directors.names.get(person) ?? "un réalisateur que tu aimes";
+      const items = byPerson.get(person)!
+        .map((c) => ({ c, bayes: (c.vote_count * c.vote_average + BAYES_M * BAYES_C) / (c.vote_count + BAYES_M) }))
+        .filter(({ c }) => c.vote_count >= 200) // écarte les courts-métrages et films confidentiels de jeunesse
+        .sort((a, b) => b.bayes - a.bayes)
+        .map(({ c }) => ({
+          kind: "movie" as const, id: c.id, title: c.title, poster_path: c.poster_path, year: c.year, score: 0,
+          reason: `De ${name}, dont tu as aimé ${liked} films`,
+        }));
+      const picked = take(items);
+      if (picked.length >= MIN_ROW) rows.push({ id: `director-${person}`, title: `De ${name}`, subtitle: `Tu as aimé ${liked} de ses films`, items: picked });
+      else picked.forEach((it) => used.delete(`${kindNum(it.kind)}:${it.id}`));
+    }
+  }
+
+  // 4. Pépites : très bien notées mais moins connues que d'habitude (l'inverse assumé du profil de notoriété).
+  if (ctx.notoriety) {
+    const usual = 10 ** ctx.notoriety.mean;
+    const gems = ctx.scored
+      // Au moins deux titres aimés y mènent : une seule origine laisse passer les notes gonflées par une communauté de fans.
+      // et dans des genres qu'il apprécie.
+      .filter((x) => x.c.vote_count >= 50 && x.c.vote_count < usual && x.bayes >= 7.2 && x.c.support >= 2 && x.genreAffinity > 0.15)
+      .sort((a, b) => b.score / Math.max(b.fit, 1e-6) - a.score / Math.max(a.fit, 1e-6))
+      .map((x) => ({ ...toRecommendation(x), reason: "Très bien noté, moins connu que ce que tu regardes d'habitude" }));
+    const picked = take(gems);
+    if (picked.length >= MIN_ROW) {
+      rows.push({ id: "gems", title: "Pépites méconnues", subtitle: "Très bien notées, moins connues que ce que tu regardes d'habitude", items: picked });
+    }
+  }
+  return rows.filter((r) => r.items.length > 0);
+}
+
+/**
+ * Films de ses réalisateurs préférés qu'il n'a pas vus. Réalisateurs préférés = les mieux placés dans son
+ * profil de contenu (nombre de films aimés, notes, rareté). Signaux et filmographies sont récupérés une fois
+ * pour tout le monde ; ce qui manque est complété en arrière-plan (5 filmographies tout de suite au plus).
+ */
+async function directorCandidates(userId: number, seeds: Seed[], tuning: Tuning, background?: (p: Promise<unknown>) => void) {
+  const feats = await loadFeatures(seeds.map((s) => ({ kind: s.kind, id: s.id })));
+  const missingFeatures = seeds.filter((s) => s.w > 0 && !feats.has(`${s.kind}:${s.id}`)).slice(0, 200);
+  if (missingFeatures.length) {
+    background?.((async () => {
+      for (const s of missingFeatures) await ensureFeatures(s.kind, s.id).catch(() => {});
+    })());
+  }
+  const cprof = contentProfile(seeds.map((s) => ({ w: s.w, features: feats.get(`${s.kind}:${s.id}`) })));
+  const favorites = [...cprof]
+    .filter(([k, v]) => k[0] === "d" && v > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, tuning.directorCount)
+    .map(([k, v]) => ({ id: Number(k.slice(1)), w: v }));
+  const empty = { rows: [] as (Candidate & { score: number; person: number })[], names: new Map<number, string>(), likedCount: new Map<number, number>() };
+  if (!favorites.length) return empty;
+
+  const likedCount = new Map<number, number>();
+  for (const s of seeds) if (s.w > 0) for (const d of feats.get(`${s.kind}:${s.id}`)?.directors ?? []) likedCount.set(d, (likedCount.get(d) ?? 0) + 1);
+
+  const ids = favorites.map((f) => f.id);
+  const fresh = new Set(
+    (await db.execute<{ id: number }>(sql`
+      SELECT id FROM people WHERE id = ANY(${pgArray(ids)}::int[]) AND credits_fetched_at > now() - interval '30 days'`)).map((r) => r.id),
+  );
+  const missing = ids.filter((id) => !fresh.has(id));
+  await Promise.all(missing.slice(0, 5).map((id) => ensureDirectorCredits(id).catch(() => {})));
+  if (missing.length > 5) {
+    background?.((async () => {
+      for (const id of missing.slice(5)) await ensureDirectorCredits(id).catch(() => {});
+    })());
+  }
+
+  const weight = new Map(favorites.map((f) => [f.id, f.w]));
+  const rows = await db.execute<Candidate & { person_ids: number[] }>(sql`
+    SELECT ms.kind, ms.id, ms.title, ms.poster_path, ms.year, ms.genre_ids, ms.vote_average, ms.vote_count,
+           array_agg(dc.person_id) AS person_ids
+    FROM director_credits dc
+    JOIN media_summary ms ON ms.kind = ${Kind.movie} AND ms.id = dc.movie_id
+    WHERE dc.person_id = ANY(${pgArray(ids)}::int[])
+      AND NOT EXISTS (SELECT 1 FROM user_movies um WHERE um.user_id = ${userId} AND um.movie_id = dc.movie_id)
+      AND NOT EXISTS (SELECT 1 FROM user_feedback f WHERE f.user_id = ${userId} AND f.kind = ${Kind.movie} AND f.item_id = dc.movie_id)
+    GROUP BY ms.kind, ms.id, ms.title, ms.poster_path, ms.year, ms.genre_ids, ms.vote_average, ms.vote_count`);
+  const names = new Map(
+    (await db.execute<{ id: number; name: string }>(sql`SELECT id, name FROM people WHERE id = ANY(${pgArray(ids)}::int[])`)).map((r) => [r.id, r.name]),
+  );
+  return {
+    rows: rows.map((r) => {
+      const ps = r.person_ids.filter((p) => weight.has(p));
+      const person = ps.reduce((best, p) => (weight.get(p)! > weight.get(best)! ? p : best), ps[0]);
+      return { ...r, score: ps.reduce((a, p) => a + weight.get(p)!, 0), person };
+    }),
+    names,
+    likedCount,
+  };
+}
+
 /** Re-classement glouton : pénalise la répétition d'une même graine ou d'un même genre principal. */
-function diversify<T extends { c: Candidate; score: number }>(items: T[], limit: number) {
+function diversify<T extends { c: Candidate; score: number }>(items: T[], limit: number, tuning: Tuning) {
   const pool = [...items].sort((a, b) => b.score - a.score);
   const bySeed = new Map<string, number>();
   const byGenre = new Map<number, number>();
@@ -299,7 +537,7 @@ function diversify<T extends { c: Candidate; score: number }>(items: T[], limit:
       const it = pool[i];
       const s = `${it.c.top_seed_kind}:${it.c.top_seed_id}`;
       const g = it.c.genre_ids?.[0] ?? -1;
-      const adj = it.score * 0.8 ** (bySeed.get(s) ?? 0) * 0.92 ** (byGenre.get(g) ?? 0);
+      const adj = it.score * tuning.diversitySeed ** (bySeed.get(s) ?? 0) * tuning.diversityGenre ** (byGenre.get(g) ?? 0);
       if (adj > bestScore) {
         bestScore = adj;
         best = i;

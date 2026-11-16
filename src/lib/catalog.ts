@@ -58,17 +58,19 @@ export async function syncShow(id: number) {
 
     await tx.execute(sql`
       INSERT INTO shows (id, name, overview, poster_path, backdrop_path, first_air_date, status,
-                         network, genre_ids, episode_runtime, season_count, popularity, synced_at)
+                         network, genre_ids, episode_runtime, season_count, popularity, vote_average, vote_count, synced_at)
       VALUES (${show.id}, ${show.name}, ${show.overview || null}, ${show.poster_path}, ${show.backdrop_path},
               ${toDate(show.first_air_date)}, ${show.status}, ${show.networks?.[0]?.name ?? null},
               ${pgArray((show.genres ?? []).map((g) => g.id))}::smallint[],
-              ${runtime}, ${show.number_of_seasons ?? 0}, ${show.popularity ?? 0}, now())
+              ${runtime}, ${show.number_of_seasons ?? 0}, ${show.popularity ?? 0},
+              ${show.vote_average ?? null}::real, ${show.vote_count ?? null}::int, now())
       ON CONFLICT (id) DO UPDATE SET
         name = excluded.name, overview = excluded.overview, poster_path = excluded.poster_path,
         backdrop_path = excluded.backdrop_path, first_air_date = excluded.first_air_date,
         status = excluded.status, network = excluded.network, genre_ids = excluded.genre_ids,
         episode_runtime = excluded.episode_runtime, season_count = excluded.season_count,
-        popularity = excluded.popularity, synced_at = now()`);
+        popularity = excluded.popularity, vote_average = excluded.vote_average,
+        vote_count = excluded.vote_count, synced_at = now()`);
 
     await upsertEpisodes(tx, id, episodes);
 
@@ -158,14 +160,17 @@ export async function syncMovie(id: number) {
   await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(${LOCK_MOVIE}, ${id})`);
     await tx.execute(sql`
-      INSERT INTO movies (id, title, overview, poster_path, backdrop_path, release_date, runtime, genre_ids, popularity, synced_at)
+      INSERT INTO movies (id, title, overview, poster_path, backdrop_path, release_date, runtime, genre_ids, popularity,
+                          vote_average, vote_count, synced_at)
       VALUES (${m.id}, ${m.title}, ${m.overview || null}, ${m.poster_path}, ${m.backdrop_path},
               ${toDate(m.release_date)}, ${clampSmall(m.runtime)},
-              ${pgArray((m.genres ?? []).map((g) => g.id))}::smallint[], ${m.popularity ?? 0}, now())
+              ${pgArray((m.genres ?? []).map((g) => g.id))}::smallint[], ${m.popularity ?? 0},
+              ${m.vote_average ?? null}::real, ${m.vote_count ?? null}::int, now())
       ON CONFLICT (id) DO UPDATE SET
         title = excluded.title, overview = excluded.overview, poster_path = excluded.poster_path,
         backdrop_path = excluded.backdrop_path, release_date = excluded.release_date,
         runtime = excluded.runtime, genre_ids = excluded.genre_ids, popularity = excluded.popularity,
+        vote_average = excluded.vote_average, vote_count = excluded.vote_count,
         synced_at = now()`);
   });
 }

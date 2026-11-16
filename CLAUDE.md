@@ -24,7 +24,8 @@ Nom public : **RegePlaza** (une seule source : `src/lib/brand.ts`). « TVtimeAga
   - `queries.ts` : lectures (une requête par écran)
   - `catalog.ts` / `tmdb.ts` / `sync.ts` : catalogue TMDB, synchro à la demande et job quotidien
   - `imports.ts` / `letterboxd.ts` : import Letterboxd (job reprenable)
-  - `recs.ts` : moteur de recommandation
+  - `recs.ts` : moteur de recommandation (`recommend`, rangées `recommendRows`)
+  - `features.ts` : signaux de contenu TMDB et filmographies de réalisateurs ; `media-summary.ts` : fiches légères des candidats
   - `auth.ts` / `api.ts` : sessions, enveloppe des routes API (erreurs, anti-CSRF, rate limit)
   - `account.ts` : export et suppression des données d'un utilisateur (RGPD)
 - `src/db/schema.ts` : schéma Drizzle ; `drizzle/` : migrations SQL (dont fonctions SQL écrites à la main)
@@ -41,7 +42,10 @@ Nom public : **RegePlaza** (une seule source : `src/lib/brand.ts`). « TVtimeAga
 - Migrations : `npm run db:generate` (après modification de `src/db/schema.ts`), puis `npm run db:migrate`
 - Données de dev : `npm run seed` (catalogue fictif) ; `npm run seed -- --bench` (10 000 users, ~2 M épisodes vus)
 - Job quotidien : `npm run sync` (synchro TMDB incrémentale + graphe collaboratif)
-- Recommandations : `npm run recs:build` (graphe de co-visionnage), `npm run recs:eval` (précision et latence sur le bench)
+- Recommandations : `npm run recs:build` (graphe de co-visionnage), `npm run recs:eval` (précision et latence sur le bench),
+  `npm run recs:holdout -- <export Letterboxd> [--analyse] [--tuning '{…}']` (mesure sur un vrai historique, base locale :
+  à lancer avant de changer l'algorithme ou ses réglages)
+- Catalogue : `npm run catalog:backfill-votes` (votes TMDB manquants ; le job quotidien le fait par lots)
 - Build : `npm run build` (utiliser `NEXT_DIST_DIR=<dossier>` si un serveur de dev tourne déjà)
 - Déploiement : Vercel lance `npm run vercel-build` (migrations de production via `npm run db:migrate:deploy`, puis build) ; voir docs/OPERATIONS.md
 

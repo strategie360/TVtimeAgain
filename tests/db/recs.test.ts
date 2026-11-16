@@ -94,6 +94,28 @@ describe("recommend", () => {
   });
 });
 
+describe("recommend with a notoriety profile", () => {
+  it("prefers a title as well known as the user's favourites over a better-rated, better-linked obscure one", async () => {
+    await resetDb();
+    const u = await createUser("cinephile");
+    // Ses films aimés ont ~20 000 votes.
+    for (let i = 1; i <= 6; i++) {
+      await createMovie(100 + i, { title: `Classic ${i}`, genreIds: [SCIFI] });
+      await db.execute(sql`UPDATE movies SET vote_count = 20000, vote_average = 8 WHERE id = ${100 + i}`);
+      await setMovieRating(u, 100 + i, 9);
+    }
+    // Sans profil de notoriété, l'obscur gagnerait : mieux noté et nettement mieux relié.
+    await summary(200, "Obscure but close", [SCIFI], 9.5, 40);
+    await summary(201, "Known and close", [SCIFI], 7.5, 15000);
+    for (let i = 1; i <= 6; i++) {
+      await link(100 + i, 200, 1.0);
+      await link(100 + i, 201, 0.6);
+    }
+    const t = titles(await recommend(u, { kind: "movie", limit: 10 }));
+    expect(t.indexOf("Known and close")).toBeLessThan(t.indexOf("Obscure but close"));
+  });
+});
+
 describe("buildCollabLinks", () => {
   it("links titles that the same users liked, with a cosine score", async () => {
     await createMovie(20, { title: "Shared A" });
