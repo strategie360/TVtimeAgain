@@ -28,10 +28,12 @@ depuis le 16 novembre 2026 : https://t-vtime-again.vercel.app
 
 ## In progress
 
-- Branche `feat/vercel-analytics` : mesure d'audience Vercel Web Analytics, page Confidentialité mise à jour.
+- Branche `fix/letterboxd-real-export` : import Letterboxd fiabilisé sur un vrai export (1 044 titres) :
+  dossiers `deleted/` ignorés, mini-séries détectées, titres longs retrouvés.
 
 ## Done recently
 
+- 2026-11-16 : Vercel Web Analytics en production (PR #8, puis #9 `dev` → `main`).
 - 2026-11-16 : retour de la release 1.0.0 dans `dev` (PR #7).
 - 2026-11-16 : **1.0.0 en ligne** (https://t-vtime-again.vercel.app, PR #6) : Vercel Hobby (fonctions à Francfort, `fra1`) et Neon
   (`aws-eu-central-1`) ; migrations appliquées ; Next.js 15.5.29 (faille CVE-2025-66478 corrigée).
@@ -72,4 +74,6 @@ depuis le 16 novembre 2026 : https://t-vtime-again.vercel.app
 
 ## Open questions
 
+- Flux Git : `dev` a été supprimée après la PR #9 (`dev` → `main`). Les règles écrites (décision 0003,
+  CLAUDE.md) disent encore de passer par `dev` ; en attendant, les PR vont vers `main`. Owner : Tom.
 - Modèle économique : contenu de l'offre payante et calendrier. Owner : TODO.
