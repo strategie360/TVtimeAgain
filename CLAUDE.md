@@ -41,6 +41,7 @@ Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, q
 - Job quotidien : `npm run sync` (synchro TMDB incrémentale + graphe collaboratif)
 - Recommandations : `npm run recs:build` (graphe de co-visionnage), `npm run recs:eval` (précision et latence sur le bench)
 - Build : `npm run build` (utiliser `NEXT_DIST_DIR=<dossier>` si un serveur de dev tourne déjà)
+- Déploiement : Vercel lance `npm run vercel-build` (migrations de production via `npm run db:migrate:deploy`, puis build) ; voir docs/OPERATIONS.md
 
 ## Project-specific rules
 
@@ -53,6 +54,9 @@ Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, q
 - SQL : toujours paramétré ; tableaux passés via `pgArray()` (un seul paramètre lié) ; caster les constantes
   utilisées dans un `CASE` ou un `UNION` (`::smallint`), sinon Postgres les type en `text`.
 - TMDB : ne jamais l'appeler depuis le navigateur ; tout passe par le catalogue partagé.
+- Hébergement gratuit (Vercel Hobby + Neon Free, décision 0002) : pas d'état en mémoire indispensable
+  (plusieurs instances éphémères), requêtes de moins de 300 s, migrations compatibles avec la version
+  précédente du code. Aucune API propre à Vercel ou Neon dans le code, pour pouvoir déménager.
 - Tests : la logique de `src/lib/` se teste contre la vraie base de test (`tests/helpers/db.ts`), jamais en
   simulant la base ; seul TMDB est simulé. Nouveau fichier de test : `tests/unit/` s'il n'y a pas de base,
   sinon `tests/db/` avec `resetDb()` dans `beforeEach`.

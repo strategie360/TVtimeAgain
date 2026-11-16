@@ -2,38 +2,98 @@
 
 <!-- For whoever deploys and runs the system. A person on call should be able to act from this page alone. -->
 
+Hébergement retenu : Vercel Hobby + Neon Free, tant que le projet n'est pas commercial
+([décision 0002](decisions/0002-host-on-vercel-hobby-and-neon-free.md)).
+
 ## Environments
 
 | Environment | URL / target | Deployed from | Notes |
 |---|---|---|---|
-| TODO (dev / staging / production) | | | |
+| Local | http://localhost:3000 | `npm run dev` | Postgres local, voir [DEVELOPMENT.md](DEVELOPMENT.md) |
+| Preview | URL générée par Vercel pour chaque PR | Chaque branche poussée | Pas de migration ; ne doit pas pointer vers la base de production (voir Configuration) |
+| Production | TODO (URL Vercel ou domaine, pas encore créé) | Branche `main` | Vercel Hobby, région `fra1` ; base Neon Free |
 
 ## Configuration
 
-<!-- Every environment variable, what it does, where its value lives (never the value itself). Keep in sync with .env.example. -->
+Les mêmes variables que `.env.example`. Les valeurs ne sont jamais dans le dépôt.
 
 | Variable | Purpose | Required | Where it is stored |
 |---|---|---|---|
-| TODO | | | |
+| `DATABASE_URL` | Connexion Postgres de l'app. En production : adresse **pooled** de Neon (`…-pooler…`, `?sslmode=require`) | Oui | Local : `.env.local`. Prod : variables d'environnement Vercel (Production) |
+| `DATABASE_URL_UNPOOLED` | Adresse **directe** de Neon, utilisée seulement pour les migrations au déploiement | Prod | Vercel (Production) ; fournie par l'intégration Neon si elle est utilisée |
+| `DATABASE_POOL_MAX` | Connexions par instance : 10 en local, **3** sur Vercel | Non (défaut 10) | `.env.local` / Vercel |
+| `DATABASE_PREPARE` | `false` derrière le pooler Neon (mode transaction), `true` sinon | Prod : `false` | `.env.local` / Vercel |
+| `TMDB_TOKEN` | Jeton TMDB « API Read Access Token » (v4) | Oui | `.env.local` / Vercel |
+| `TMDB_LANGUAGE` | Langue des métadonnées (`fr-FR`) | Non (défaut `fr-FR`) | `.env.local` / Vercel |
+| `CRON_SECRET` | Secret du job quotidien ; Vercel Cron l'envoie tout seul dans `Authorization: Bearer …` | Oui | `.env.local` / Vercel ; une longue chaîne aléatoire |
+
+Variables posées par Vercel et lues par le code : `VERCEL_ENV` (les migrations ne tournent qu'en `production`).
 
 ## Deploy
 
-TODO: how a release reaches each environment (CI pipeline, store submission, manual steps), and how to roll back.
+### Mise en place (une seule fois)
+
+1. **Neon** (https://neon.com) : créer un compte et un projet Postgres, région Europe (Francfort) si
+   elle est proposée. Récupérer l'adresse *pooled* et l'adresse *directe*.
+2. **Vercel** (https://vercel.com) : créer un compte, importer le dépôt GitHub `strategie360/TVtimeAgain`.
+   Le framework Next.js est détecté ; le build utilise le script `vercel-build` de `package.json`.
+3. Dans Vercel → Settings → Environment Variables, scope **Production** : `DATABASE_URL` (pooled),
+   `DATABASE_URL_UNPOOLED` (directe), `DATABASE_POOL_MAX=3`, `DATABASE_PREPARE=false`, `TMDB_TOKEN`,
+   `CRON_SECRET`.
+4. Pour les déploiements **Preview**, ne pas définir `DATABASE_URL` vers la base de production.
+   Sans base, le build d'une preview réussit, mais les pages qui lisent la base y sont en erreur.
+   TODO : décider s'il faut une branche Neon dédiée aux previews (ses migrations seraient alors
+   à appliquer à la main, `planMigration` ne les lançant qu'en production).
+5. Lancer un premier déploiement (push sur `main`) ; les migrations s'appliquent pendant le build.
+
+### À chaque mise en production
+
+- Merger une PR dans `main` déclenche le déploiement de production. Le build exécute
+  `npm run db:migrate:deploy` puis `next build`. Si une migration échoue, ou si aucune adresse de base
+  n'est configurée en production, le build échoue et l'ancienne version reste en ligne.
+- Le job quotidien (`vercel.json`) appelle `GET /api/v1/cron/sync` à 04:00 UTC (à l'heure près sur
+  l'offre Hobby).
+
+### Retour arrière
+
+- Code : Vercel → Deployments → choisir le déploiement précédent → *Promote to Production*
+  (ou *Instant Rollback*).
+- Base : les migrations ne sont pas annulées automatiquement. Une migration doit donc rester compatible
+  avec la version précédente du code (ajouter avant de supprimer). En cas de problème grave :
+  restauration Neon à un instant donné (fenêtre de 6 h sur Free), voir Backups.
 
 ## Monitoring
 
-TODO: logs, metrics, error tracking, alerts, and where to see them.
+- Journaux de l'app et des crons : Vercel → projet → Logs (et Deployments → Cron Jobs).
+- Base : tableau de bord Neon (stockage, CU-heures consommées, transfert).
+- TODO : suivi des erreurs et alertes (rien n'est en place).
 
 ## Runbook
 
-<!-- One entry per known incident type: symptoms, diagnosis, fix. -->
+**Le job quotidien ne tourne pas ou renvoie 401**
+- Vérifier que `CRON_SECRET` est défini côté Vercel (Production), puis redéployer.
+- Lancer le job à la main : `curl -X POST -H "Authorization: Bearer <secret>" https://<prod>/api/v1/cron/sync`.
 
-TODO
+**Les écritures échouent (inscription, épisodes cochés)**
+- Neon Free bloque les écritures au-delà de 1 Go de stockage, et suspend la base si le transfert mensuel
+  dépasse 5 Go. Vérifier dans le tableau de bord Neon ; libérer de la place ou passer à l'offre payante.
+
+**La première requête est lente (~1 s)**
+- Normal sur Neon Free : la base se met en veille après 5 min d'inactivité.
+
+**Le build échoue sur « échec des migrations »**
+- Lire le message dans les logs du build. Corriger la migration sur une branche ; la version précédente
+  reste en ligne entre-temps.
 
 ## Backups and data
 
-TODO: what is backed up, how often, how to restore.
+- Neon Free : restauration à un instant donné sur les **6 dernières heures** seulement.
+- TODO : sauvegarde régulière indépendante (`pg_dump` programmé vers un stockage externe), pas encore
+  en place. C'est le principal risque de cet hébergement gratuit.
+- Données personnelles : email, pseudo, historique de visionnage et notes (voir
+  [ARCHITECTURE.md](ARCHITECTURE.md#data)).
 
 ## Access
 
-TODO: who has access to what, and how to request access (no credentials here).
+TODO : qui a accès aux comptes Vercel, Neon, TMDB et GitHub, et comment demander un accès
+(aucun identifiant ici).
