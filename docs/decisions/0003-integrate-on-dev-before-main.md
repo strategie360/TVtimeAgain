@@ -37,8 +37,12 @@ Le template de développement suppose un flux direct vers `main` :
 - Une étape de plus pour mettre en production (branche `release/`, PR, merge), mais un vrai environnement
   d'essai avec ses propres données.
 - `dev` n'est pas protégée par les hooks Claude du template (seulement `main`/`master`). Le hook git
-  pre-commit bloque déjà les commits sur `dev` (nom de branche non conforme) ; il faut en plus protéger `dev`
-  sur GitHub (Settings → Branches). Proposition au template : rendre la liste des branches protégées
-  et la branche de base configurables (`.template/config`).
+  pre-commit bloque déjà les commits sur `dev` (nom de branche non conforme). Proposition au template :
+  rendre la liste des branches protégées et la branche de base configurables (`.template/config`).
+- **Aucune protection côté GitHub** : l'organisation est sur l'offre gratuite et le dépôt est privé ; GitHub
+  refuse les règles de protection et les rulesets (« Upgrade to GitHub Pro or make this repository public »,
+  vérifié le 2026-11-16). Seuls les hooks locaux protègent `main` et `dev` : un push direct reste possible
+  depuis une machine sans les hooks, ou en les contournant volontairement.
+- `dev` est la branche par défaut sur GitHub : les PR la visent automatiquement.
 - La CI `web-ts` tourne sur toutes les PR (vers `dev` comme vers `main`), mais pas sur les push vers `dev`.
 - Une deuxième base Neon (branche `dev`) consomme une partie des limites gratuites (stockage, CU-heures).
