@@ -39,8 +39,8 @@ tournent qu'en production et sur la preview de `dev`, voir `planMigration` dans 
    elle est proposée. Récupérer l'adresse *pooled* et l'adresse *directe*.
 2. **Vercel** (https://vercel.com) : créer un compte, importer le dépôt GitHub `strategie360/TVtimeAgain`.
    Le framework Next.js est détecté ; le build utilise le script `vercel-build` de `package.json`.
-   Vérifier Settings → Git → **Production Branch = `main`** (Vercel reprend la branche par défaut de GitHub
-   à l'import : si c'est `dev`, il faut la remettre à `main`).
+   Vérifier Settings → Git → **Production Branch = `main`** (c'est la branche par défaut de GitHub,
+   que Vercel reprend à l'import).
 3. Dans Vercel → Settings → Environment Variables, scope **Production** : `DATABASE_URL` (pooled),
    `DATABASE_URL_UNPOOLED` (directe), `DATABASE_POOL_MAX=3`, `DATABASE_PREPARE=false`, `TMDB_TOKEN`,
    `CRON_SECRET`.

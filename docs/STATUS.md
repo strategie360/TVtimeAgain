@@ -7,7 +7,7 @@ keep it short, factual and current. Rules: .claude/standards/documentation.md
 -->
 
 Phase: mvp
-Version: 0.1.0
+Version: 1.0.0
 Last updated: 2026-11-16
 
 <!-- Phase is one of: idea | prototype | mvp | beta | production | maintenance -->
@@ -19,7 +19,7 @@ cocher les épisodes vus, savoir quel épisode regarder ensuite, voir les procha
 et consulter ses statistiques. On peut importer son historique Letterboxd ou cocher rapidement ce qu'on a
 déjà vu, et l'application propose des films et des séries adaptés à ses goûts. Elle reprend l'idée de
 TV Time, qui a fermé faute de financement, avec l'objectif de coûter très peu par utilisateur. Elle
-fonctionne aujourd'hui sur l'ordinateur du développeur ; la première version publique (1.0.0) est en préparation.
+La première version publique (1.0.0) est prête ; sa mise en ligne attend la création des comptes Neon et Vercel.
 
 ## Current focus
 
@@ -28,12 +28,13 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; la première version p
 
 ## In progress
 
-- Branche `feat/v1-launch` : nom RegePlaza, pages À propos (mention TMDB) et Confidentialité, export et
-  suppression de compte (RGPD), guide utilisateur, passage en phase `mvp`.
+- Branche `release/1.0.0` : version 1.0.0, PR de `dev` vers `main`.
 
 ## Done recently
 
-- 2026-11-16 : intégration sur `dev` avant `main` (décision 0003, PR #4) ; `dev` est la branche par défaut.
+- 2026-11-16 : préparation du lancement (PR #5) : nom RegePlaza, pages À propos (mention TMDB) et
+  Confidentialité, export et suppression de compte (RGPD), guide utilisateur, phase `mvp`.
+- 2026-11-16 : intégration sur `dev` avant `main` (décision 0003, PR #4) ; `main` reste la branche par défaut (production).
 - 2026-11-16 : configuration de déploiement gratuit Vercel Hobby + Neon Free (cron, migrations au
   déploiement, build sans base), décision 0002 et OPERATIONS.md (PR #3).
 - 2026-11-16 : branche `dev` créée ; les PR vont désormais vers `dev`.
@@ -48,7 +49,7 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; la première version p
    (docs/OPERATIONS.md), premier déploiement de `dev` puis de `main` via une branche `release/`.
 2. Sauvegarde régulière de la base (`pg_dump` programmé) : Neon Free ne restaure que sur 6 h.
 3. Tests restants : routes API (validation, anti-CSRF, droits), authentification, synchro TMDB (`catalog.ts`, `sync.ts`).
-4. Fonctionnalités : import TV Time et IMDb, notifications de nouveaux épisodes, export et suppression de compte.
+4. Fonctionnalités : import TV Time et IMDb, notifications de nouveaux épisodes.
 
 ## Known issues and risks
 

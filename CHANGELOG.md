@@ -5,6 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-16
+
+Première version publique.
+
 ### Added
 
 - Suivi des séries épisode par épisode, avec le prochain épisode à regarder et la progression.
@@ -19,9 +23,3 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 - L'application s'appelle désormais RegePlaza.
 - Page « Mon compte » : télécharger toutes ses données et supprimer définitivement son compte.
 - Pages « À propos » (source des données TMDB, mentions légales) et « Confidentialité » (données collectées, droits).
-
-### Changed
-
-### Fixed
-
-### Removed

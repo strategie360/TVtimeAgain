@@ -20,7 +20,8 @@ Le template de développement suppose un flux direct vers `main` :
 - `dev` est la branche d'intégration. Toutes les branches de travail partent de `dev` et y reviennent par PR.
 - La mise en production passe par une branche `release/<version>` créée depuis `dev`, puis une PR vers
   `main`. Le type `release/` est déjà accepté par la CI du template : aucun changement du template n'est
-  nécessaire.
+  nécessaire. Après le merge dans `main`, une seconde PR de la même branche `release/<version>` vers `dev`
+  y ramène le passage de version (une PR depuis `main` serait refusée par la CI).
 - La preview Vercel de la branche `dev` sert d'environnement de test (« staging »), avec sa propre base
   (une branche Neon `dev`). Les migrations y sont appliquées au déploiement (`planMigration`), comme en
   production.
@@ -45,6 +46,7 @@ Le template de développement suppose un flux direct vers `main` :
   depuis une machine sans les hooks, ou en les contournant volontairement. Choix du 2026-11-16 : les hooks
   locaux suffisent tant qu'une seule personne travaille sur le projet ; à revoir (GitHub Team) dès qu'un
   autre contributeur arrive.
-- `dev` est la branche par défaut sur GitHub : les PR la visent automatiquement.
+- `main` reste la branche par défaut sur GitHub : elle représente la production. Les PR de travail doivent
+  donc viser `dev` explicitement (`gh pr create --base dev`).
 - La CI `web-ts` tourne sur toutes les PR (vers `dev` comme vers `main`), mais pas sur les push vers `dev`.
 - Une deuxième base Neon (branche `dev`) consomme une partie des limites gratuites (stockage, CU-heures).
