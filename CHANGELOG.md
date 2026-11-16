@@ -7,6 +7,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ### Added
 
+- Bouton pour afficher ou masquer le mot de passe (connexion, inscription, suppression de compte).
 - « Pour toi » en rangées : la sélection principale, « Parce que tu as aimé… », « De [réalisateur], dont tu as
   aimé N films » et « Pépites méconnues ».
 
