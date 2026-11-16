@@ -5,6 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Bouton pour afficher ou masquer le mot de passe (connexion, inscription, suppression de compte).
+
 ## [1.0.1] - 2026-11-16
 
 ### Added
