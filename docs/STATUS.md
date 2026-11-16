@@ -30,6 +30,7 @@ depuis le 16 novembre 2026 : https://t-vtime-again.vercel.app
 
 - Branche `release/1.0.1` : dernière intégration de `dev` dans `main` (import Letterboxd fiabilisé, Analytics) ;
   passage aux PR directes vers `main` (décision 0004).
+- Branche `feat/show-password` : bouton « afficher le mot de passe ».
 
 ## Done recently
 
