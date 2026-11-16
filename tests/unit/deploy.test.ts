@@ -34,8 +34,21 @@ describe("planMigration", () => {
     expect(planMigration({ DATABASE_URL: "postgres://local" })).toEqual({ run: true, url: "postgres://local" });
   });
 
-  it("never touches the database from a preview deployment, and lets the preview build continue", () => {
-    expect(planMigration({ VERCEL_ENV: "preview", DATABASE_URL: "prod" })).toMatchObject({ run: false, fatal: false });
+  it("never touches the database from a feature-branch preview, and lets the preview build continue", () => {
+    expect(planMigration({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "feat/x", DATABASE_URL: "dev-db" })).toMatchObject({
+      run: false,
+      fatal: false,
+    });
+  });
+
+  it("migrates the staging database on the dev branch preview", () => {
+    expect(
+      planMigration({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "dev", DATABASE_URL: "pooled", DATABASE_URL_UNPOOLED: "dev-direct" }),
+    ).toEqual({ run: true, url: "dev-direct" });
+  });
+
+  it("fails the dev branch build when its staging database is not configured", () => {
+    expect(planMigration({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "dev" })).toMatchObject({ run: false, fatal: true });
   });
 
   it("fails a production build that has no database URL", () => {

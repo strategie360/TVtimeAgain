@@ -11,12 +11,13 @@ vient de TMDB, est copié une seule fois et partagé par tous les utilisateurs. 
 central : un coût par utilisateur minimal (requêtes en quelques millisecondes, compteurs dénormalisés,
 aucun agrégat global à la lecture, images servies par le CDN de TMDB).
 
-Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, questions ouvertes).
+Nom public : **RegePlaza** (une seule source : `src/lib/brand.ts`). « TVtimeAgain » est le nom du dépôt.
+Éditeur et contact RGPD affichés sur les pages publiques : `src/lib/legal.ts`.
 
 ## Layout
 
 - `src/app/(app)/` : pages connectées (à suivre, agenda, séries, films, stats, pour toi, import, sélection rapide, fiches)
-- `src/app/login/` : connexion et inscription
+- `src/app/login/` : connexion et inscription ; `src/app/about/`, `src/app/privacy/` : pages publiques (TMDB, mentions légales, RGPD)
 - `src/app/api/v1/` : API JSON, réutilisable par une future app mobile (route handlers fins)
 - `src/lib/` : logique métier et accès aux données
   - `tracking.ts` : écritures utilisateur (épisodes vus, films, notes)
@@ -25,6 +26,7 @@ Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, q
   - `imports.ts` / `letterboxd.ts` : import Letterboxd (job reprenable)
   - `recs.ts` : moteur de recommandation
   - `auth.ts` / `api.ts` : sessions, enveloppe des routes API (erreurs, anti-CSRF, rate limit)
+  - `account.ts` : export et suppression des données d'un utilisateur (RGPD)
 - `src/db/schema.ts` : schéma Drizzle ; `drizzle/` : migrations SQL (dont fonctions SQL écrites à la main)
 - `src/components/` : composants React (serveur et client)
 - `scripts/` : seed, synchro, graphe de recommandations, évaluation (exécutés avec tsx)
@@ -45,6 +47,15 @@ Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, q
 
 ## Project-specific rules
 
+- Branches (décision 0003) : **la branche de base est `dev`, pas `main`**. Partout où les standards et les
+  commandes du template (`/feature`, `/review`, `/ship`) disent `main`, utiliser `dev` : créer les branches
+  depuis `dev` à jour, comparer avec `dev...HEAD`, ouvrir les PR avec `--base dev`, lancer
+  `./scripts/docs-check.sh --base origin/dev`. `dev` est protégée comme `main` (pas de commit ni de push direct).
+  Mise en production : branche `release/<version>` créée depuis `dev`, PR vers `main` (titre
+  `chore(release): <version>`), avec le passage de `[Unreleased]` à la version dans `CHANGELOG.md` et la
+  version dans `package.json`, `package-lock.json` et `docs/STATUS.md`. Après son merge, seconde PR de la même
+  branche `release/<version>` vers `dev`. Jamais de PR directe `dev` → `main` (la CI refuse le nom `dev`).
+  `main` est la branche par défaut sur GitHub (production) : `--base dev` est donc obligatoire pour les PR de travail.
 - Langue : interface et documentation en français ; code, commits et noms de branches en anglais.
 - Variables d'environnement dans `.env.local` (jamais lu ni commité) ; noms et exemples dans `.env.example`.
 - Ne jamais lancer deux serveurs Next.js sur le même `distDir` (ça corrompt `.next` et provoque des 404).
@@ -53,7 +64,10 @@ Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, q
   avant d'ajouter une requête sur une table utilisateur.
 - SQL : toujours paramétré ; tableaux passés via `pgArray()` (un seul paramètre lié) ; caster les constantes
   utilisées dans un `CASE` ou un `UNION` (`::smallint`), sinon Postgres les type en `text`.
-- TMDB : ne jamais l'appeler depuis le navigateur ; tout passe par le catalogue partagé.
+- TMDB : ne jamais l'appeler depuis le navigateur ; tout passe par le catalogue partagé. La mention TMDB
+  (page À propos) est obligatoire selon leurs conditions.
+- Données personnelles : toute nouvelle table liée à un utilisateur doit avoir `ON DELETE CASCADE` depuis
+  `users` et apparaître dans l'export (`src/lib/account.ts`), et la page Confidentialité doit rester exacte.
 - Hébergement gratuit (Vercel Hobby + Neon Free, décision 0002) : pas d'état en mémoire indispensable
   (plusieurs instances éphémères), requêtes de moins de 300 s, migrations compatibles avec la version
   précédente du code. Aucune API propre à Vercel ou Neon dans le code, pour pouvoir déménager.
