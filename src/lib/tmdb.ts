@@ -212,33 +212,43 @@ const NOISE = /\b(making of|behind the scenes|featurette|documentary|the story o
  * même année > ±1 an, nombre de votes (le « vrai » film en a beaucoup plus),
  * pénalité pour les bonus/documentaires que la requête ne demandait pas.
  */
-export function matchScore(name: string, year: number | null, r: TmdbListItem & { original_title?: string }) {
+type Candidate = TmdbListItem & { original_title?: string; original_name?: string };
+const candidateTitles = (r: Candidate) =>
+  [r.title, r.original_title, r.name, r.original_name].filter(Boolean).map((t) => norm(t!));
+
+/** Le candidat porte-t-il exactement ce titre (titre affiché ou titre original) ? */
+export function isExactTitle(name: string, r: Candidate) {
+  return candidateTitles(r).includes(norm(name));
+}
+
+export function matchScore(name: string, year: number | null, r: Candidate) {
   const q = norm(name);
-  const titles = [r.title, r.original_title].filter(Boolean).map((t) => norm(t!));
+  const titles = candidateTitles(r);
   let s = 0;
   if (titles.includes(q)) s += 6;
+  // Sous-titre en plus ou en moins (« Glass Onion » / « Glass Onion: A Knives Out Mystery »).
   else if (titles.some((t) => t.startsWith(q) || q.startsWith(t))) s += 2;
-  else if (titles.some((t) => t.includes(q) || q.includes(t))) s += 1;
-  else return -Infinity; // aucun lien de titre : jamais retenu, même populaire et de la bonne année
-  const y = Number(r.release_date?.slice(0, 4));
+  // Titre seulement contenu ailleurs (« Loki » dans « The Good, the Bart, and the Loki ») :
+  // jamais retenu, même populaire et de la bonne année.
+  else return -Infinity;
+  const y = Number((r.release_date ?? r.first_air_date)?.slice(0, 4));
   if (year && y) s += y === year ? 3 : Math.abs(y - year) === 1 ? 1.5 : -3;
   s += Math.log10((r.vote_count ?? 0) + 1); // 10 votes : +1 ; 10 000 votes : +4
   if (titles.some((t) => NOISE.test(t)) && !NOISE.test(q)) s -= 6;
   return s;
 }
 
-/**
- * Trouve un film par titre + année (import Letterboxd). Recherche en anglais
- * (langue des titres Letterboxd), avec puis sans l'année, et garde le
- * meilleur score.
- */
-export async function findMovie(name: string, year: number | null): Promise<TmdbListItem | null> {
+const MIN_SCORE = 3.5; // en dessous, on préfère « introuvable » à une erreur
+
+/** Meilleur candidat d'une recherche TMDB (films ou séries), avec et sans l'année. */
+async function searchBest(kind: "movie" | "tv", name: string, year: number | null, query = name) {
+  const yearParam = kind === "movie" ? "year" : "first_air_date_year";
   const search = (extra: Record<string, string | number>) =>
-    tmdb<Paged>("/search/movie", { params: { query: name, language: "en-US", ...extra } }).then((r) => r.results);
-  const [withYear, without] = await Promise.all([year ? search({ year }) : Promise.resolve([]), search({})]);
+    tmdb<Paged>(`/search/${kind}`, { params: { query, language: "en-US", ...extra } }).then((r) => r.results);
+  const [withYear, without] = await Promise.all([year ? search({ [yearParam]: year }) : Promise.resolve([]), search({})]);
   const all = [...new Map([...withYear, ...without].map((r) => [r.id, r])).values()];
-  let best: TmdbListItem | null = null;
-  let bestScore = 3.5; // seuil : en dessous, on préfère « introuvable » à une erreur
+  let best: Candidate | null = null;
+  let bestScore = MIN_SCORE;
   for (const r of all) {
     const sc = matchScore(name, year, r);
     if (sc > bestScore) {
@@ -247,6 +257,46 @@ export async function findMovie(name: string, year: number | null): Promise<Tmdb
     }
   }
   return best;
+}
+
+export type TitleMatch = { kind: "movie" | "show"; item: TmdbListItem };
+
+const releaseYear = (r: Candidate) => Number((r.release_date ?? r.first_air_date)?.slice(0, 4)) || null;
+/** Année connue et à un an près de celle de Letterboxd (ou pas d'année côté Letterboxd). */
+const isNearYear = (r: Candidate, year: number | null) => {
+  const y = releaseYear(r);
+  return !year || (y !== null && Math.abs(y - year) <= 1);
+};
+/** Assez connu pour ne pas douter : au moins 100 votes et la bonne année. */
+const isSolid = (r: Candidate, year: number | null) => (r.vote_count ?? 0) >= 100 && isNearYear(r, year);
+
+/**
+ * Trouve le titre TMDB d'une ligne Letterboxd (titres en anglais).
+ *  1. Film au titre exact : c'est lui.
+ *  2. Sinon, Letterboxd contient aussi des mini-séries (Chernobyl, The Queen's Gambit…) : une série au
+ *     titre exact, plus votée que le meilleur film, l'emporte.
+ *  3. Sinon le meilleur film approchant (sous-titre en plus ou en moins).
+ *  4. Rien trouvé et titre long (« Jeanne Dielman, 23, quai du Commerce… ») : nouvelle recherche avec
+ *     le début du titre, toujours notée contre le titre complet.
+ */
+export async function findLetterboxdTitle(name: string, year: number | null): Promise<TitleMatch | null> {
+  const movie = await searchBest("movie", name, year);
+  // Film exact et solide : inutile d'aller voir les séries. Un « film » exact presque sans votes ni date
+  // (Loki : 2 votes, alors que la série en a 12 909) ne suffit pas.
+  if (movie && isExactTitle(name, movie) && isSolid(movie, year)) return { kind: "movie", item: movie };
+
+  const show = await searchBest("tv", name, year);
+  if (show && isExactTitle(name, show) && isNearYear(show, year) && (!movie || (show.vote_count ?? 0) > (movie.vote_count ?? 0))) {
+    return { kind: "show", item: show };
+  }
+  if (movie) return { kind: "movie", item: movie };
+
+  const short = name.split(/[,:(–—]| - /)[0].trim();
+  if (short.length >= 3 && short.length < name.trim().length) {
+    const retry = await searchBest("movie", name, year, short);
+    if (retry) return { kind: "movie", item: retry };
+  }
+  return null;
 }
 
 /**
