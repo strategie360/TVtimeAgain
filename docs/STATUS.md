@@ -7,7 +7,7 @@ keep it short, factual and current. Rules: .claude/standards/documentation.md
 -->
 
 Phase: mvp
-Version: 1.0.0
+Version: 1.0.1
 Last updated: 2026-11-16
 
 <!-- Phase is one of: idea | prototype | mvp | beta | production | maintenance -->
@@ -28,31 +28,28 @@ depuis le 16 novembre 2026 : https://t-vtime-again.vercel.app
 
 ## In progress
 
-- Branche `feat/vercel-analytics` : mesure d'audience Vercel Web Analytics, page Confidentialité mise à jour.
+- Branche `release/1.0.1` : dernière intégration de `dev` dans `main` (import Letterboxd fiabilisé, Analytics) ;
+  passage aux PR directes vers `main` (décision 0004).
 
 ## Done recently
 
-- 2026-11-16 : retour de la release 1.0.0 dans `dev` (PR #7).
-- 2026-11-16 : **1.0.0 en ligne** (https://t-vtime-again.vercel.app, PR #6) : Vercel Hobby (fonctions à Francfort, `fra1`) et Neon
-  (`aws-eu-central-1`) ; migrations appliquées ; Next.js 15.5.29 (faille CVE-2025-66478 corrigée).
-- 2026-11-16 : préparation du lancement (PR #5) : nom RegePlaza, pages À propos (mention TMDB) et
-  Confidentialité, export et suppression de compte (RGPD), guide utilisateur, phase `mvp`.
-- 2026-11-16 : intégration sur `dev` avant `main` (décision 0003, PR #4) ; `main` reste la branche par défaut (production).
-- 2026-11-16 : configuration de déploiement gratuit Vercel Hobby + Neon Free (cron, migrations au
-  déploiement, build sans base), décision 0002 et OPERATIONS.md (PR #3).
-- 2026-11-16 : branche `dev` créée ; les PR vont désormais vers `dev`.
-- 2026-11-16 : tests automatisés de la logique centrale (48 tests : épisodes et compteurs, films, import
-  Letterboxd, recommandations), mergés dans `main` (PR #1) ; `./scripts/check.sh` et la CI GitHub passent.
-- 2026-11-16 : import Letterboxd, sélection rapide « déjà vus », notes en étoiles, recommandations « Pour toi ».
-- 2026-11-15 : suivi des séries et épisodes, calendrier, films, statistiques, synchro TMDB, PWA.
+- 2026-11-16 : retour aux PR directes vers `main` (décision 0004, remplace 0003) ; release 1.0.1.
+- 2026-11-16 : import Letterboxd fiabilisé sur un vrai export (PR #10) : 1 044/1 044 titres reconnus, mini-séries
+  détectées, dossiers `deleted/` ignorés.
+- 2026-11-16 : Vercel Web Analytics en production (PR #8, #9).
+- 2026-11-16 : **1.0.0 en ligne** (https://t-vtime-again.vercel.app, PR #6) : Vercel Hobby (fonctions à Francfort,
+  `fra1`) et Neon (`aws-eu-central-1`) ; Next.js 15.5.29 (faille CVE-2025-66478 corrigée).
+- 2026-11-16 : préparation du lancement (PR #5) : RegePlaza, pages À propos et Confidentialité, export et
+  suppression de compte (RGPD), guide utilisateur, phase `mvp`.
+
+Historique complet : [CHANGELOG.md](../CHANGELOG.md).
 
 ## Next
 
-1. Staging : branche Neon `dev` et variables Preview de Vercel limitées à la branche `dev` (docs/OPERATIONS.md).
-2. Sauvegarde régulière de la base (`pg_dump` programmé) : Neon Free ne restaure que sur 6 h.
-3. Tests restants : routes API (validation, anti-CSRF, droits), authentification, synchro TMDB (`catalog.ts`, `sync.ts`).
-4. Maintenance : fixer Node 22 sur Vercel (`engines`), drizzle-orm 0.45, zod 4, Next 16 (failles restantes, voir plus bas).
-5. Fonctionnalités : import TV Time et IMDb, notifications de nouveaux épisodes.
+1. Sauvegarde régulière de la base (`pg_dump` programmé) : Neon Free ne restaure que sur 6 h.
+2. Tests restants : routes API (validation, anti-CSRF, droits), authentification, synchro TMDB (`catalog.ts`, `sync.ts`).
+3. Maintenance : fixer Node 22 sur Vercel (`engines`), drizzle-orm 0.45, zod 4, Next 16 (failles restantes, voir plus bas).
+4. Fonctionnalités : import TV Time et IMDb, notifications de nouveaux épisodes.
 
 ## Known issues and risks
 

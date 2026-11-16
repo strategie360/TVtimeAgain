@@ -5,9 +5,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-16
+
 ### Added
 
 - Mesure d'audience anonyme et sans cookie (Vercel Web Analytics), annoncée dans la page Confidentialité.
+- Import Letterboxd : les mini-séries de l'export (Chernobyl, Loki…) sont reconnues comme des séries et
+  proposées à la fin de l'import, au lieu d'être importées comme de faux films.
+
+### Fixed
+
+- Import Letterboxd : les entrées supprimées (`deleted/`) ou orphelines de l'export ne peuvent plus remplacer
+  le vrai journal (dates de visionnage et revisionnages).
+- Import Letterboxd : un film n'est plus associé à un titre qui contient seulement le sien (« Loki » ne
+  devient plus un court-métrage des Simpson), et les titres très longs sont retrouvés.
 
 ## [1.0.0] - 2026-11-16
 

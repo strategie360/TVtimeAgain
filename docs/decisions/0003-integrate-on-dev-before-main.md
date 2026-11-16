@@ -1,6 +1,6 @@
 # 0003. Intégrer sur une branche `dev` avant `main`
 
-- Status: accepted
+- Status: superseded by [0004](0004-pull-requests-directly-to-main.md)
 - Date: 2026-11-16
 
 ## Context
@@ -46,6 +46,9 @@ Le template de développement suppose un flux direct vers `main` :
   depuis une machine sans les hooks, ou en les contournant volontairement. Choix du 2026-11-16 : les hooks
   locaux suffisent tant qu'une seule personne travaille sur le projet ; à revoir (GitHub Team) dès qu'un
   autre contributeur arrive.
+- Incident du 2026-11-16 : une PR directe `dev` → `main` (#9) a été mergée (la CI la refuse, mais rien
+  n'est protégé), puis `dev` a été supprimée par le bouton « Delete branch » de GitHub. `dev` a été recréée
+  depuis `main`. À retenir : passer par `release/<version>`, et ne jamais supprimer `dev` après un merge.
 - `main` reste la branche par défaut sur GitHub : elle représente la production. Les PR de travail doivent
   donc viser `dev` explicitement (`gh pr create --base dev`).
 - La CI `web-ts` tourne sur toutes les PR (vers `dev` comme vers `main`), mais pas sur les push vers `dev`.
