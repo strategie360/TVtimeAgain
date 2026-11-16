@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectFile, mergeLetterboxd, parseCsv } from "@/lib/letterboxd";
+import { collectFiles, detectFile, mergeLetterboxd, parseCsv } from "@/lib/letterboxd";
 
 describe("parseCsv", () => {
   it("maps rows to the header columns", () => {
@@ -27,6 +27,36 @@ describe("detectFile", () => {
     expect(detectFile("ratings.csv")).toBe("ratings");
     expect(detectFile("watchlist.csv")).toBe("watchlist");
     expect(detectFile("reviews.csv")).toBeNull();
+  });
+
+  it("ignores deleted, orphaned, likes and lists sub-folders, which reuse the same file names", () => {
+    expect(detectFile("deleted/diary.csv")).toBeNull();
+    expect(detectFile("Account Settings Nov 16 2026/orphaned/diary.csv")).toBeNull();
+    expect(detectFile("likes/films.csv")).toBeNull();
+    expect(detectFile("export\\lists\\watched.csv")).toBeNull();
+    expect(detectFile("Account Settings Nov 16 2026/diary.csv")).toBe("diary");
+  });
+});
+
+describe("collectFiles", () => {
+  const header = "Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date\n";
+  const realDiary = header + "2024-02-01,Heat,1995,d1,4,,,2024-01-31\n2024-02-02,Alien,1979,d2,5,,,2024-02-01\n";
+
+  it("keeps the real diary even when deleted/ and orphaned/ come after it in the zip", () => {
+    const files = collectFiles([
+      { path: "diary.csv", text: realDiary },
+      { path: "deleted/diary.csv", text: header },
+      { path: "orphaned/diary.csv", text: header + "2020-01-01,Ghost,2000,x,,,,2020-01-01\n" },
+    ]);
+    expect(files.diary).toBe(realDiary);
+  });
+
+  it("keeps the fuller file when the same name is selected twice", () => {
+    expect(collectFiles([{ path: "diary.csv", text: header }, { path: "copy/diary.csv", text: realDiary }]).diary).toBe(realDiary);
+  });
+
+  it("returns nothing for unrelated files", () => {
+    expect(collectFiles([{ path: "profile.csv", text: "Username\nx\n" }])).toEqual({});
   });
 });
 

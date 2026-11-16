@@ -48,13 +48,39 @@ export function parseCsv(text: string): Record<string, string>[] {
 
 type Files = Partial<Record<"watched" | "diary" | "ratings" | "watchlist", string>>;
 
-export function detectFile(filename: string): keyof Files | null {
-  const f = filename.toLowerCase().split("/").pop() ?? "";
+/**
+ * Sous-dossiers de l'export à ne jamais importer. `deleted/diary.csv` (entrées supprimées) et
+ * `orphaned/diary.csv` ont le même nom et le même en-tête que le vrai journal.
+ */
+const IGNORED_FOLDERS = new Set(["deleted", "orphaned", "likes", "lists"]);
+
+/** Type de fichier Letterboxd d'après son chemin (dans le zip ou sur le disque), ou null. */
+export function detectFile(path: string): keyof Files | null {
+  const parts = path.toLowerCase().split(/[\\/]/);
+  const f = parts.pop() ?? "";
+  if (parts.some((p) => IGNORED_FOLDERS.has(p))) return null;
   if (f === "watched.csv") return "watched";
   if (f === "diary.csv") return "diary";
   if (f === "ratings.csv") return "ratings";
   if (f === "watchlist.csv") return "watchlist";
   return null;
+}
+
+const dataLines = (text: string) => text.split(/\r?\n/).filter((l) => l.trim()).length;
+
+/**
+ * Choisit le bon fichier pour chaque type. Si plusieurs fichiers ont le même nom (exports dans des
+ * dossiers différents, fichiers choisis à la main), garde celui qui contient le plus de lignes.
+ */
+export function collectFiles(entries: { path: string; text: string }[]): Files {
+  const files: Files = {};
+  for (const { path, text } of entries) {
+    const kind = detectFile(path);
+    if (!kind) continue;
+    const current = files[kind];
+    if (current === undefined || dataLines(text) > dataLines(current)) files[kind] = text;
+  }
+  return files;
 }
 
 const toRating = (v: string | undefined) => {
