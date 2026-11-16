@@ -41,7 +41,10 @@ Nom public : **RegePlaza** (une seule source : `src/lib/brand.ts`). « TVtimeAga
 - Migrations : `npm run db:generate` (après modification de `src/db/schema.ts`), puis `npm run db:migrate`
 - Données de dev : `npm run seed` (catalogue fictif) ; `npm run seed -- --bench` (10 000 users, ~2 M épisodes vus)
 - Job quotidien : `npm run sync` (synchro TMDB incrémentale + graphe collaboratif)
-- Recommandations : `npm run recs:build` (graphe de co-visionnage), `npm run recs:eval` (précision et latence sur le bench)
+- Recommandations : `npm run recs:build` (graphe de co-visionnage), `npm run recs:eval` (précision et latence sur le bench),
+  `npm run recs:holdout -- <export Letterboxd> [--analyse] [--tuning '{…}']` (mesure sur un vrai historique, base locale :
+  à lancer avant de changer l'algorithme ou ses réglages)
+- Catalogue : `npm run catalog:backfill-votes` (votes TMDB manquants ; le job quotidien le fait par lots)
 - Build : `npm run build` (utiliser `NEXT_DIST_DIR=<dossier>` si un serveur de dev tourne déjà)
 - Déploiement : Vercel lance `npm run vercel-build` (migrations de production via `npm run db:migrate:deploy`, puis build) ; voir docs/OPERATIONS.md
 

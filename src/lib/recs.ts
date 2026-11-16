@@ -1,7 +1,7 @@
 /**
  * Moteur de recommandation hybride (films + séries).
  *
- *   score(c) = CF(c) × qualité(c) × affinité_genres(c), puis re-classement pour la diversité
+ *   score(c) = CF(c) × qualité(c) × affinité_genres(c) × notoriété(c)², puis re-classement pour la diversité
  *
  * 1. GRAINES : tout ce que l'utilisateur a vu, noté, mis en liste, avec un poids
  *    w ∈ [-1, 1] : note centrée (10/10 → +1, 1/10 → -1), engagement pour les
@@ -19,10 +19,16 @@
  *
  * 4. AFFINITÉ DE GENRES : profil de genres de l'utilisateur, pondéré par ses notes.
  *
+ * 4 bis. NOTORIÉTÉ : à quel point les titres qu'il aime sont connus (nombre de votes TMDB). Un candidat
+ *    nettement plus confidentiel que d'habitude est pénalisé, jamais un plus connu. C'est le signal le
+ *    plus discriminant mesuré sur un vrai historique (voir notorietyProfile).
+ *
  * 5. DIVERSITÉ : re-classement glouton qui pénalise les titres venant de la même
  *    graine ou du même genre principal, pour éviter « 10 films Marvel d'affilée ».
  *
  * Chaque recommandation est EXPLIQUÉE (« Parce que tu as aimé X »).
+ *
+ * Réglages (DEFAULT_TUNING) choisis par mesure hors ligne : `npm run recs:holdout -- <export Letterboxd>`.
  *
  * Coût : tout est lu en local (graphe pré-calculé), 2 requêtes SQL par appel.
  * TMDB n'est appelé que pour les graines jamais vues par AUCUN utilisateur.
@@ -34,7 +40,28 @@ import { pgArray } from "./catalog";
 import { discoverByGenres, fetchList, fetchRecommendations, type TmdbListItem } from "./tmdb";
 
 const LINK_TTL_DAYS = 30;
-const MAX_SEEDS = 40;
+/**
+ * Réglages de l'algorithme. Les valeurs par défaut sont celles mesurées comme les meilleures
+ * (npm run recs:holdout) ; on peut les surcharger pour une expérience.
+ */
+export type Tuning = {
+  maxSeeds: number; // graines (titres de l'utilisateur) utilisées pour trouver les candidats
+  popularityFit: number; // poids du profil de notoriété (0 = ignoré) : favorise les titres aussi connus que ceux qu'il aime
+  cfExponent: number; // poids de la proximité avec ses titres (exposant du score collaboratif)
+  candidatePool: number; // candidats évalués, pris parmi les mieux reliés à ses titres
+  diversitySeed: number; // facteur appliqué à chaque nouveau titre issu de la même graine (1 = aucun effet)
+  diversityGenre: number; // idem pour le même genre principal
+};
+// Mesuré le 2026-11-16 sur un vrai historique (1 044 titres, 92 films cachés, 3 tirages) :
+// rappel@50 de 0,109 (40 graines, sans profil de notoriété) à 0,156.
+export const DEFAULT_TUNING: Tuning = {
+  maxSeeds: 300,
+  popularityFit: 2,
+  cfExponent: 1,
+  candidatePool: 600,
+  diversitySeed: 0.8,
+  diversityGenre: 0.92,
+};
 const SYNC_FETCH = 8; // graines dont on va chercher les liens tout de suite (le reste en arrière-plan)
 const BAYES_M = 300; // nombre de votes « virtuels »
 const BAYES_C = 6.8; // note moyenne a priori
@@ -52,7 +79,7 @@ export type Recommendation = {
   reason: string;
 };
 
-type Seed = { kind: number; id: number; w: number; genre_ids: number[]; name: string; linked: boolean };
+type Seed = { kind: number; id: number; w: number; genre_ids: number[]; name: string; linked: boolean; vote_count: number | null };
 
 // ─────────────────────────── Graphe TMDB ───────────────────────────
 
@@ -140,19 +167,20 @@ const toKindGenre = (g: number, kind: number) => (kind === Kind.show ? MOVIE_TO_
 // ─────────────────────────── Graines ───────────────────────────
 
 async function loadSeeds(userId: number): Promise<Seed[]> {
+  // Notes centrées sur 5,5/10. (Centrer sur la moyenne de l'utilisateur a été mesuré : moins bon.)
   // Décroissance : facteur 0,5 + 0,5·e^(-âge/1 an).
   const rows = await db.execute<Seed>(sql`
-    WITH s AS (
-      SELECT ${Kind.movie}::int AS kind, um.movie_id AS id, m.genre_ids, m.title AS name,
+    WITH c AS (SELECT 5.5::real AS center), s AS (
+      SELECT ${Kind.movie}::int AS kind, um.movie_id AS id, m.genre_ids, m.title AS name, m.vote_count,
         (CASE WHEN um.status = 0 THEN 0.25
               WHEN um.rating IS NULL THEN 0.6
-              ELSE (um.rating - 5.5) / 4.5 END)
+              ELSE greatest(-1, least(1, (um.rating - (SELECT center FROM c)) / 4.5)) END)
         * (0.5 + 0.5 * exp(-extract(epoch FROM now() - coalesce(um.watched_at, um.added_at)) / 31536000.0)) AS w
       FROM user_movies um JOIN movies m ON m.id = um.movie_id
       WHERE um.user_id = ${userId}
       UNION ALL
-      SELECT ${Kind.show}, us.show_id, s.genre_ids, s.name,
-        (CASE WHEN us.rating IS NOT NULL THEN (us.rating - 5.5) / 4.5
+      SELECT ${Kind.show}, us.show_id, s.genre_ids, s.name, s.vote_count,
+        (CASE WHEN us.rating IS NOT NULL THEN greatest(-1, least(1, (us.rating - (SELECT center FROM c)) / 4.5))
               WHEN us.status = 3 THEN -0.5
               WHEN us.watched_count = 0 THEN 0.25
               ELSE 0.3 + 0.7 * least(1, us.watched_count::real / greatest(1, least(s.aired_episodes, 20))) END)
@@ -161,7 +189,7 @@ async function loadSeeds(userId: number): Promise<Seed[]> {
       FROM user_shows us JOIN shows s ON s.id = us.show_id
       WHERE us.user_id = ${userId}
     )
-    SELECT s.kind, s.id, s.genre_ids, s.name, s.w::real AS w,
+    SELECT s.kind, s.id, s.genre_ids, s.name, s.vote_count, s.w::real AS w,
            (lf.fetched_at IS NOT NULL AND lf.fetched_at > now() - ${`${LINK_TTL_DAYS} days`}::interval) AS linked
     FROM s LEFT JOIN link_fetches lf ON lf.kind = s.kind AND lf.id = s.id`);
   return [...rows];
@@ -177,6 +205,33 @@ function genreProfile(seeds: Seed[]) {
     }
   const max = Math.max(1e-6, ...[...acc.values()].map(Math.abs));
   return new Map([...acc].map(([g, v]) => [g, v / max]));
+}
+
+/**
+ * Profil de notoriété : à quel point les titres qu'il aime sont connus (moyenne et dispersion du
+ * log10 du nombre de votes TMDB, pondérées par son appréciation). Mesuré sur un vrai historique, c'est
+ * le signal qui distingue le mieux ce qu'un utilisateur aimera parmi les candidats (AUC 0,97).
+ * Personnel : un amateur de films confidentiels obtient l'effet inverse d'un amateur de classiques.
+ */
+export function notorietyProfile(seeds: { w: number; vote_count: number | null }[]) {
+  const liked = seeds.filter((s) => s.w > 0 && s.vote_count != null);
+  const total = liked.reduce((a, s) => a + s.w, 0);
+  if (liked.length < 5 || total <= 0) return null; // trop peu d'historique pour en tirer un profil
+  const logs = liked.map((s) => ({ l: Math.log10(s.vote_count! + 1), w: s.w }));
+  const mean = logs.reduce((a, x) => a + x.w * x.l, 0) / total;
+  const variance = logs.reduce((a, x) => a + x.w * (x.l - mean) ** 2, 0) / total;
+  return { mean, sigma: Math.max(0.35, Math.sqrt(variance)) };
+}
+
+/**
+ * Ressemblance (0..1] entre la notoriété d'un candidat et le profil de l'utilisateur. À sens unique :
+ * un titre plus connu que d'habitude n'est jamais pénalisé, seul un titre nettement plus confidentiel
+ * l'est (on aime rarement ce qui est bien plus obscur que ce qu'on regarde).
+ */
+export function notorietyFit(voteCount: number, profile: { mean: number; sigma: number } | null) {
+  if (!profile) return 1;
+  const z = (Math.log10(voteCount + 1) - profile.mean) / profile.sigma;
+  return z >= 0 ? 1 : Math.exp(-0.5 * z * z);
 }
 
 // ─────────────────────────── Recommandation ───────────────────────────
@@ -198,13 +253,14 @@ type Candidate = {
 
 export async function recommend(
   userId: number,
-  opts: { kind?: KindName; limit?: number; background?: (p: Promise<unknown>) => void } = {},
+  opts: { kind?: KindName; limit?: number; background?: (p: Promise<unknown>) => void; tuning?: Partial<Tuning> } = {},
 ): Promise<Recommendation[]> {
   const limit = Math.min(opts.limit ?? 30, 100);
+  const tuning = { ...DEFAULT_TUNING, ...opts.tuning };
   const seeds = await loadSeeds(userId);
 
   // Graines « fortes » d'abord (positives) ; on garde quelques négatives pour repousser.
-  const ranked = [...seeds].sort((a, b) => Math.abs(b.w) - Math.abs(a.w)).slice(0, MAX_SEEDS);
+  const ranked = [...seeds].sort((a, b) => Math.abs(b.w) - Math.abs(a.w)).slice(0, tuning.maxSeeds);
 
   // Liens manquants : les plus importantes tout de suite, le reste en arrière-plan.
   // Les titres détestés aussi : leurs voisins seront repoussés.
@@ -220,6 +276,7 @@ export async function recommend(
   }
 
   const profile = genreProfile(seeds);
+  const notoriety = notorietyProfile(seeds);
   const wanted = opts.kind ? [kindNum(opts.kind)] : [Kind.movie, Kind.show];
 
   let candidates: Candidate[] = [];
@@ -250,7 +307,7 @@ export async function recommend(
           AND NOT EXISTS (SELECT 1 FROM user_shows us WHERE a.kind = ${Kind.show} AND us.user_id = ${userId} AND us.show_id = a.id)
           AND NOT EXISTS (SELECT 1 FROM user_feedback f WHERE f.user_id = ${userId} AND f.kind = a.kind AND f.item_id = a.id)
         ORDER BY a.cf DESC
-        LIMIT 600`)),
+        LIMIT ${Math.max(tuning.candidatePool, limit * 12)}`)),
     ];
   }
 
@@ -260,9 +317,10 @@ export async function recommend(
     const quality = Math.min(1.3, Math.max(0.2, (q - 5) / 3));
     const gs = c.genre_ids ?? [];
     const aff = gs.length ? gs.reduce((a, g) => a + (profile.get(g) ?? 0), 0) / gs.length : 0;
+    const fit = notorietyFit(c.vote_count, notoriety) ** tuning.popularityFit;
     return {
       c,
-      score: c.cf * quality * (1 + 0.5 * aff),
+      score: c.cf ** tuning.cfExponent * quality * (1 + 0.5 * aff) * fit,
       reason:
         c.support > 2
           ? `Proche de ${seedName.get(`${c.top_seed_kind}:${c.top_seed_id}`)} et ${c.support - 1} autres titres que tu as aimés`
@@ -270,7 +328,7 @@ export async function recommend(
     };
   });
 
-  const picked = diversify(scored, limit);
+  const picked = diversify(scored, limit, tuning);
   const out: Recommendation[] = picked.map(({ c, score, reason }) => ({
     kind: c.kind === Kind.movie ? "movie" : "show",
     id: c.id,
@@ -287,7 +345,7 @@ export async function recommend(
 }
 
 /** Re-classement glouton : pénalise la répétition d'une même graine ou d'un même genre principal. */
-function diversify<T extends { c: Candidate; score: number }>(items: T[], limit: number) {
+function diversify<T extends { c: Candidate; score: number }>(items: T[], limit: number, tuning: Tuning) {
   const pool = [...items].sort((a, b) => b.score - a.score);
   const bySeed = new Map<string, number>();
   const byGenre = new Map<number, number>();
@@ -299,7 +357,7 @@ function diversify<T extends { c: Candidate; score: number }>(items: T[], limit:
       const it = pool[i];
       const s = `${it.c.top_seed_kind}:${it.c.top_seed_id}`;
       const g = it.c.genre_ids?.[0] ?? -1;
-      const adj = it.score * 0.8 ** (bySeed.get(s) ?? 0) * 0.92 ** (byGenre.get(g) ?? 0);
+      const adj = it.score * tuning.diversitySeed ** (bySeed.get(s) ?? 0) * tuning.diversityGenre ** (byGenre.get(g) ?? 0);
       if (adj > bestScore) {
         bestScore = adj;
         best = i;

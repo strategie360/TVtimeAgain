@@ -36,6 +36,13 @@
       "when": 1794855577836,
       "tag": "0004_letterboxd_shows",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794863211638,
+      "tag": "0005_catalog_votes",
+      "breakpoints": true
     }
   ]
 }
