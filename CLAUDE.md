@@ -45,6 +45,13 @@ Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, q
 
 ## Project-specific rules
 
+- Branches (décision 0003) : **la branche de base est `dev`, pas `main`**. Partout où les standards et les
+  commandes du template (`/feature`, `/review`, `/ship`) disent `main`, utiliser `dev` : créer les branches
+  depuis `dev` à jour, comparer avec `dev...HEAD`, ouvrir les PR avec `--base dev`, lancer
+  `./scripts/docs-check.sh --base origin/dev`. `dev` est protégée comme `main` (pas de commit ni de push direct).
+  Mise en production : branche `release/<version>` créée depuis `dev`, PR vers `main` (titre
+  `chore(release): <version>`), avec le passage de `[Unreleased]` à la version dans `CHANGELOG.md` et la
+  version dans `package.json` et `docs/STATUS.md`. Jamais de PR directe `dev` → `main` (la CI refuse le nom `dev`).
 - Langue : interface et documentation en français ; code, commits et noms de branches en anglais.
 - Variables d'environnement dans `.env.local` (jamais lu ni commité) ; noms et exemples dans `.env.example`.
 - Ne jamais lancer deux serveurs Next.js sur le même `distDir` (ça corrompt `.next` et provoque des 404).

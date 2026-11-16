@@ -28,11 +28,14 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore 
 
 ## In progress
 
-- Branche `chore/deploy-vercel-neon` : configuration de déploiement (cron Vercel, migrations au déploiement,
-  build sans base), décision 0002 et OPERATIONS.md.
+- Branche `chore/dev-branch-workflow` : intégration sur `dev` avant `main` (décision 0003), staging sur la
+  preview Vercel de `dev` avec sa propre base.
 
 ## Done recently
 
+- 2026-11-16 : configuration de déploiement gratuit Vercel Hobby + Neon Free (cron, migrations au
+  déploiement, build sans base), décision 0002 et OPERATIONS.md (PR #3).
+- 2026-11-16 : branche `dev` créée ; les PR vont désormais vers `dev`.
 - 2026-11-16 : tests automatisés de la logique centrale (48 tests : épisodes et compteurs, films, import
   Letterboxd, recommandations), mergés dans `main` (PR #1) ; `./scripts/check.sh` et la CI GitHub passent.
 - 2026-11-16 : import Letterboxd, sélection rapide « déjà vus », notes en étoiles, recommandations « Pour toi ».
@@ -40,7 +43,9 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore 
 
 ## Next
 
-1. Mise en ligne : créer les projets Neon et Vercel, renseigner les variables (docs/OPERATIONS.md), premier déploiement.
+1. Mise en ligne : créer les projets Neon (avec une branche `dev`) et Vercel, renseigner les variables
+   (docs/OPERATIONS.md), premier déploiement de `dev` puis de `main` via une branche `release/`.
+   Protéger `dev` et `main` sur GitHub.
 2. Sauvegarde régulière de la base (`pg_dump` programmé) : Neon Free ne restaure que sur 6 h.
 3. Tests restants : routes API (validation, anti-CSRF, droits), authentification, synchro TMDB (`catalog.ts`, `sync.ts`).
 4. Fonctionnalités : import TV Time et IMDb, notifications de nouveaux épisodes, export et suppression de compte.
@@ -58,5 +63,4 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore 
 ## Open questions
 
 - Nom définitif du produit : l'interface affiche « NextUp », la documentation « TVtimeAgain ». Owner : TODO.
-- Previews Vercel : base dédiée (branche Neon) ou pas de base. Owner : TODO.
 - Modèle économique : contenu de l'offre payante et calendrier. Owner : TODO.
