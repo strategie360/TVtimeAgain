@@ -23,27 +23,29 @@ fonctionne aujourd'hui sur l'ordinateur du développeur ; elle n'est pas encore 
 
 ## Current focus
 
-- Ajouter des tests automatisés sur la logique centrale (suivi d'épisodes, import, recommandations).
 - Mettre l'application en ligne (serveur en Europe, sauvegardes, job quotidien).
+- Étendre les tests aux parties encore non couvertes (API, authentification, synchro TMDB).
 
 ## In progress
 
-- None
+- Branche `test/core-logic-tests` : premiers tests automatisés (48 tests, Vitest + Postgres jetable).
 
 ## Done recently
 
+- 2026-11-16 : tests automatisés de la logique centrale (épisodes et compteurs, films, import Letterboxd,
+  recommandations) ; `./scripts/check.sh` passe.
 - 2026-11-16 : import Letterboxd, sélection rapide « déjà vus », notes en étoiles, recommandations « Pour toi ».
 - 2026-11-15 : suivi des séries et épisodes, calendrier, films, statistiques, synchro TMDB, PWA.
 
 ## Next
 
-1. Tests automatisés (Vitest + base Postgres de test) ; le contrôle du template échoue sans script `test`.
-2. Déploiement : Dockerfile, mode `standalone`, migrations au déploiement, job quotidien, sauvegardes.
+1. Déploiement : Dockerfile, mode `standalone`, migrations au déploiement, job quotidien, sauvegardes.
+2. Tests restants : routes API (validation, anti-CSRF, droits), authentification, synchro TMDB (`catalog.ts`, `sync.ts`).
 3. Fonctionnalités : import TV Time et IMDb, notifications de nouveaux épisodes, export et suppression de compte.
 
 ## Known issues and risks
 
-- Aucun test automatisé : `./scripts/check.sh` échoue tant qu'il n'y a pas de script `test`.
+- Tests partiels : les routes API, l'authentification, la synchro TMDB et l'interface ne sont pas encore testées.
 - Licence TMDB : l'API gratuite est réservée à un usage non commercial ; une licence commerciale est
   nécessaire avant toute monétisation.
 - Le nom « TVtimeAgain » reprend la marque « TV Time » : risque juridique pour un produit public.

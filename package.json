@@ -12,6 +12,8 @@
     "sync": "tsx --env-file=.env.local scripts/sync.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "dev:preview": "NEXT_DIST_DIR=.next-preview next dev -p 3001",
     "recs:build": "tsx --env-file=.env.local scripts/recs-build.ts",
     "recs:eval": "tsx --env-file=.env.local scripts/recs-eval.ts"
@@ -32,11 +34,14 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.4",
+    "embedded-postgres": "18.6.0-beta.19",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "tailwindcss": "4.1.13",
     "tsx": "^4.20.5",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "6.3.5",
+    "vitest": "3.2.4"
   },
   "engines": {
     "node": ">=20.11"

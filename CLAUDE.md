@@ -34,6 +34,7 @@ Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, q
 
 - Run every check (lint, types, tests): `./scripts/check.sh`
 - Run one stack only: `./scripts/check.sh --only <stack>`
+- Tests : `npm test` (Vitest + Postgres jetable, aucune installation) ; `npm run test:watch` ; tests sans base : `npx vitest run tests/unit`
 - Dev server : `npm run dev` (port 3000). Seconde instance isolée pour l'aperçu de Claude : `npm run dev:preview` (port 3001, dossier `.next-preview`)
 - Migrations : `npm run db:generate` (après modification de `src/db/schema.ts`), puis `npm run db:migrate`
 - Données de dev : `npm run seed` (catalogue fictif) ; `npm run seed -- --bench` (10 000 users, ~2 M épisodes vus)
@@ -52,6 +53,11 @@ Le nom affiché dans l'interface est encore « NextUp » (voir docs/STATUS.md, q
 - SQL : toujours paramétré ; tableaux passés via `pgArray()` (un seul paramètre lié) ; caster les constantes
   utilisées dans un `CASE` ou un `UNION` (`::smallint`), sinon Postgres les type en `text`.
 - TMDB : ne jamais l'appeler depuis le navigateur ; tout passe par le catalogue partagé.
+- Tests : la logique de `src/lib/` se teste contre la vraie base de test (`tests/helpers/db.ts`), jamais en
+  simulant la base ; seul TMDB est simulé. Nouveau fichier de test : `tests/unit/` s'il n'y a pas de base,
+  sinon `tests/db/` avec `resetDb()` dans `beforeEach`.
+- Hook du template : `npm pkg set …` est bloqué à tort (règle `[secrets]`, le mot `set`) ; modifier
+  `package.json` directement.
 
 <!-- dev-template:begin (managed by install.sh, do not edit inside this block) -->
 ## Engineering standards

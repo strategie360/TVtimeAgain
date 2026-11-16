@@ -50,8 +50,25 @@ Autres commandes utiles :
 ./scripts/check.sh --only <stack>
 ```
 
-TODO : il n'y a pas encore de tests automatisés ni de script `test` ; `./scripts/check.sh` échoue tant
-qu'ils n'existent pas (voir docs/STATUS.md).
+```bash
+npm test                      # toute la suite (Vitest), ~10 s
+npm run test:watch            # relance les tests à chaque modification
+npx vitest run tests/unit     # uniquement les tests sans base de données
+```
+
+Les tests n'ont besoin d'aucune installation : `tests/global-setup.ts` démarre un vrai Postgres jetable
+(embedded-postgres) sur un port libre, y applique les migrations de `drizzle/`, puis le supprime à la fin.
+Ça marche à l'identique en local et en CI. Pour aller plus vite en local, on peut pointer
+`TEST_DATABASE_URL` vers une base existante, **qui sera vidée** (par exemple `createdb tvtime_test`).
+
+| Dossier | Contenu |
+|---|---|
+| `tests/unit/` | Logique pure : lecture des exports Letterboxd, choix du bon film TMDB |
+| `tests/db/` | Logique avec base : épisodes vus et compteurs, films, import Letterboxd, recommandations |
+| `tests/helpers/db.ts` | Remise à zéro de la base et création de données de test (`createShow`, `createMovie`…) |
+
+Le réseau n'est jamais appelé : TMDB est simulé avec `vi.mock("@/lib/tmdb", …)` ou `vi.stubGlobal("fetch", …)`.
+Les fichiers de test partagent la même base et s'exécutent donc l'un après l'autre.
 
 Pour vérifier une requête, la lancer avec `EXPLAIN ANALYZE` dans `psql -d tvtime` sur le jeu `--bench`.
 
