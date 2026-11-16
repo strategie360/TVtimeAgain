@@ -266,6 +266,40 @@ export const linkFetches = pgTable(
   (t) => [primaryKey({ columns: [t.kind, t.id] })],
 );
 
+/**
+ * Signaux de contenu d'un titre (TMDB), partagés par tous : qui l'a réalisé, qui y joue, de quoi il parle.
+ * Récupérés une fois par titre (1 appel TMDB), à la demande.
+ */
+export const mediaFeatures = pgTable(
+  "media_features",
+  {
+    kind: smallint("kind").notNull(),
+    id: integer("id").notNull(),
+    directors: integer("directors").array().notNull().default(sql`'{}'`), // séries : créateurs
+    cast: integer("cast").array().notNull().default(sql`'{}'`), // 5 premiers rôles
+    keywords: integer("keywords").array().notNull().default(sql`'{}'`),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.kind, t.id] })],
+);
+
+/** Noms des personnes (réalisateurs, acteurs), pour expliquer une recommandation. */
+export const people = pgTable("people", {
+  id: integer("id").primaryKey(), // = TMDB person id
+  name: text("name").notNull(),
+  creditsFetchedAt: timestamp("credits_fetched_at", { withTimezone: true }), // filmographie récupérée le
+});
+
+/** Films réalisés par une personne (filmographie TMDB), partagés : source de candidats « réalisateurs aimés ». */
+export const directorCredits = pgTable(
+  "director_credits",
+  {
+    personId: integer("person_id").notNull(),
+    movieId: integer("movie_id").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.personId, t.movieId] })],
+);
+
 /** « Pas pour moi » sur une recommandation : exclu ensuite, et signal négatif. */
 export const userFeedback = pgTable(
   "user_feedback",
