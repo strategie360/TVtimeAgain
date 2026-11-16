@@ -83,6 +83,8 @@ Les pages publiques affirment des choses qui doivent être vraies en production 
 
 - Journaux de l'app et des crons : Vercel → projet → Logs (et Deployments → Cron Jobs).
 - Base : tableau de bord Neon (stockage, CU-heures consommées, transfert).
+- Audience : Vercel → projet → **Analytics** (à activer une fois dans le tableau de bord ; quota d'événements
+  limité sur l'offre Hobby). En local, le script tourne en mode debug et n'envoie rien.
 - TODO : suivi des erreurs et alertes (rien n'est en place).
 
 ## Runbook

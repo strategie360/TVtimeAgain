@@ -90,6 +90,7 @@ Données personnelles : email, pseudo, historique de visionnage et notes. Suppre
 | CDN images TMDB | Affiches et images (chargées directement par le navigateur) | https://image.tmdb.org |
 | Vercel (Hobby) | Hébergement de l'app, cron quotidien (`vercel.json`) | https://vercel.com/dashboard |
 | Neon (Free) | Base Postgres de production | https://console.neon.tech |
+| Vercel Web Analytics | Pages vues, sans cookie ; les paramètres d'URL sont retirés avant l'envoi (`src/lib/analytics.ts`) | Vercel → projet → Analytics |
 
 Choix et limites : [décision 0002](decisions/0002-host-on-vercel-hobby-and-neon-free.md) ; exploitation : [OPERATIONS.md](OPERATIONS.md).
 Le client Postgres (`src/db/index.ts`) est créé à la première requête, pour que `next build` n'ait pas besoin de base.
